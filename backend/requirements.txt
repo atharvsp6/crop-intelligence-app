@@ -6,3 +6,5 @@ scikit-learn
 tensorflow
 Keras
 google-generativeai
+pandas
+numpy

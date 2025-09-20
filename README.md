@@ -2,7 +2,7 @@
 
 A comprehensive full-stack crop intelligence platform for farmers, built with Flask, React, and MongoDB integration.
 
-![Crop Intelligence Platform Dashboard](https://github.com/user-attachments/assets/be5b36e2-7357-4ec4-a3a6-084b3ae371ab)
+
 
 ## 🌾 Features
 

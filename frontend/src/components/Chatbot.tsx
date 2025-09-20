@@ -1,0 +1,445 @@
+import React, { useState, useRef } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Avatar,
+  CircularProgress,
+  IconButton,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+} from '@mui/material';
+import {
+  Send,
+  SmartToy,
+  Person,
+  Agriculture,
+  LocalHospital,
+  WbSunny,
+  Clear,
+} from '@mui/icons-material';
+import axios from 'axios';
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+  context?: any;
+}
+
+interface ChatResponse {
+  success: boolean;
+  response?: string;
+  fallback_response?: string;
+  error?: string;
+  timestamp?: string;
+  context_used?: boolean;
+}
+
+const Chatbot: React.FC = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      text: 'Hello! I\'m your AI farming assistant. I can help you with crop recommendations, disease identification, market advice, and weather planning. What would you like to know?',
+      isUser: false,
+      timestamp: new Date(),
+    }
+  ]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const quickActions = [
+    {
+      label: 'Crop Recommendations',
+      icon: <Agriculture />,
+      action: () => sendQuickMessage('Can you recommend the best crops to grow this season?'),
+    },
+    {
+      label: 'Disease Help',
+      icon: <LocalHospital />,
+      action: () => sendQuickMessage('My plants are showing yellow spots on leaves. What could be wrong?'),
+    },
+    {
+      label: 'Weather Advice',
+      icon: <WbSunny />,
+      action: () => sendQuickMessage('Heavy rain is expected next week. How should I prepare my crops?'),
+    },
+  ];
+
+  const sampleQuestions = [
+    'What are the optimal growing conditions for tomatoes?',
+    'How can I improve soil fertility naturally?',
+    'When is the best time to harvest wheat?',
+    'What are signs of nitrogen deficiency in crops?',
+    'How do I control pest infestation organically?',
+    'What irrigation method works best for corn?',
+    'How can I increase crop yield on small farms?',
+    'What are the benefits of crop rotation?',
+  ];
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  React.useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async (message: string, context?: any) => {
+    if (!message.trim()) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: message,
+      isUser: true,
+      timestamp: new Date(),
+      context,
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setLoading(true);
+
+    try {
+      const response = await axios.post<ChatResponse>('http://localhost:5000/api/chat', {
+        message,
+        context,
+      });
+
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: response.data.response || response.data.fallback_response || 'Sorry, I couldn\'t process your request.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: 'I\'m having trouble connecting right now. Please make sure the backend server is running, or try these general tips:\n\n• Test your soil regularly for pH and nutrients\n• Rotate crops to maintain soil health\n• Use integrated pest management\n• Monitor weather conditions for planning\n• Contact your local agricultural extension office',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendQuickMessage = (message: string) => {
+    sendMessage(message);
+  };
+
+  const sendSpecializedQuery = async (type: string, data: any) => {
+    let endpoint = '';
+    let context = {};
+
+    switch (type) {
+      case 'crop-recommendation':
+        endpoint = '/api/chat/crop-recommendations';
+        context = { type: 'crop_recommendation' };
+        break;
+      case 'problem-analysis':
+        endpoint = '/api/chat/analyze-problem';
+        context = { type: 'problem_analysis' };
+        break;
+      case 'weather-advice':
+        endpoint = '/api/chat/weather-advice';
+        context = { type: 'weather_advice' };
+        break;
+      default:
+        return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post<ChatResponse>(`http://localhost:5000${endpoint}`, data);
+      
+      const userMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: `Requesting ${type.replace('-', ' ')}...`,
+        isUser: true,
+        timestamp: new Date(),
+        context,
+      };
+
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: response.data.response || response.data.fallback_response || 'Request processed.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, userMessage, aiMessage]);
+    } catch (error) {
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: 'Unable to process specialized query. Please try a general question instead.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearChat = async () => {
+    try {
+      await axios.post('http://localhost:5000/api/chat/clear');
+    } catch (error) {
+      console.log('Could not clear server-side chat history');
+    }
+    
+    setMessages([
+      {
+        id: '1',
+        text: 'Chat cleared! I\'m ready to help you with farming questions again. What would you like to know?',
+        isUser: false,
+        timestamp: new Date(),
+      }
+    ]);
+  };
+
+  const formatTimestamp = (timestamp: Date) => {
+    return timestamp.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <Box sx={{ flexGrow: 1, p: 3, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h4" gutterBottom>
+        <SmartToy sx={{ mr: 2, verticalAlign: 'bottom' }} />
+        AI Farming Assistant
+      </Typography>
+      <Typography variant="body1" color="text.secondary" paragraph>
+        Get instant advice on crops, diseases, weather, and market trends
+      </Typography>
+
+      <Card sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+            <Tab label="Chat" />
+            <Tab label="Quick Actions" />
+            <Tab label="Sample Questions" />
+          </Tabs>
+        </Box>
+
+        {activeTab === 0 && (
+          <>
+            {/* Chat Messages */}
+            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+              {messages.map((message) => (
+                <Box key={message.id} sx={{ mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: message.isUser ? 'flex-end' : 'flex-start',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                    }}
+                  >
+                    {!message.isUser && (
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        <SmartToy />
+                      </Avatar>
+                    )}
+                    
+                    <Paper
+                      sx={{
+                        p: 2,
+                        maxWidth: '70%',
+                        bgcolor: message.isUser ? 'primary.main' : 'grey.100',
+                        color: message.isUser ? 'white' : 'text.primary',
+                      }}
+                    >
+                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {message.text}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          mt: 1,
+                          opacity: 0.7,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {formatTimestamp(message.timestamp)}
+                      </Typography>
+                    </Paper>
+                    
+                    {message.isUser && (
+                      <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                        <Person />
+                      </Avatar>
+                    )}
+                  </Box>
+                </Box>
+              ))}
+              
+              {loading && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <SmartToy />
+                  </Avatar>
+                  <Paper sx={{ p: 2, bgcolor: 'grey.100' }}>
+                    <CircularProgress size={20} />
+                    <Typography variant="body2" sx={{ ml: 1, display: 'inline' }}>
+                      Thinking...
+                    </Typography>
+                  </Paper>
+                </Box>
+              )}
+              <div ref={messagesEndRef} />
+            </Box>
+
+            {/* Input Area */}
+            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  maxRows={4}
+                  placeholder="Ask me anything about farming..."
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage(inputMessage);
+                    }
+                  }}
+                  disabled={loading}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => sendMessage(inputMessage)}
+                  disabled={!inputMessage.trim() || loading}
+                  sx={{ minWidth: 'auto', px: 2 }}
+                >
+                  <Send />
+                </Button>
+                <IconButton onClick={clearChat} color="secondary">
+                  <Clear />
+                </IconButton>
+              </Box>
+            </Box>
+          </>
+        )}
+
+        {activeTab === 1 && (
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Quick Actions
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2 }}>
+              {quickActions.map((action, index) => (
+                <Card
+                  key={index}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': { boxShadow: 4 },
+                    transition: 'box-shadow 0.3s',
+                  }}
+                  onClick={action.action}
+                >
+                  <CardContent sx={{ textAlign: 'center' }}>
+                    <Box sx={{ color: 'primary.main', mb: 1 }}>
+                      {action.icon}
+                    </Box>
+                    <Typography variant="body2">{action.label}</Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+
+            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+              Specialized Queries
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<Agriculture />}
+                onClick={() => sendSpecializedQuery('crop-recommendation', {
+                  crop_type: 'wheat',
+                  location: 'North America',
+                  season: 'spring'
+                })}
+              >
+                Get Wheat Growing Recommendations
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<LocalHospital />}
+                onClick={() => sendSpecializedQuery('problem-analysis', {
+                  problem_description: 'Plants are wilting and leaves are turning yellow',
+                  crop_type: 'tomato',
+                  symptoms: 'yellowing leaves, wilting'
+                })}
+              >
+                Analyze Plant Problem
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<WbSunny />}
+                onClick={() => sendSpecializedQuery('weather-advice', {
+                  weather_conditions: 'Heavy rain expected for 3 days',
+                  crops: ['corn', 'wheat']
+                })}
+              >
+                Get Weather-Based Advice
+              </Button>
+            </Box>
+          </CardContent>
+        )}
+
+        {activeTab === 2 && (
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Sample Questions
+            </Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              Click on any question to ask it directly
+            </Typography>
+            <List>
+              {sampleQuestions.map((question, index) => (
+                <React.Fragment key={index}>
+                  <ListItem
+                    button
+                    onClick={() => {
+                      setActiveTab(0);
+                      sendMessage(question);
+                    }}
+                  >
+                    <ListItemText
+                      primary={question}
+                      primaryTypographyProps={{ variant: 'body2' }}
+                    />
+                  </ListItem>
+                  {index < sampleQuestions.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          </CardContent>
+        )}
+      </Card>
+    </Box>
+  );
+};
+
+export default Chatbot;

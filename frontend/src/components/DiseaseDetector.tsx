@@ -9,7 +9,6 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Grid,
   List,
   ListItem,
   ListItemText,
@@ -73,7 +72,7 @@ const DiseaseDetector: React.FC = () => {
 
     try {
       const response = await axios.post<DetectionResult>(
-        'http://localhost:5000/api/detect-disease',
+        'http://localhost:5001/api/detect-disease',
         { image: selectedImage }
       );
       setDetection(response.data);
@@ -115,8 +114,8 @@ const DiseaseDetector: React.FC = () => {
         Upload a plant image to detect diseases using AI-powered analysis
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -210,9 +209,9 @@ const DiseaseDetector: React.FC = () => {
               </List>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={6}>
+        <Box sx={{ flex: 1 }}>
           {detection && (
             <Card>
               <CardContent>
@@ -345,8 +344,8 @@ const DiseaseDetector: React.FC = () => {
               </CardContent>
             </Card>
           )}
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 };

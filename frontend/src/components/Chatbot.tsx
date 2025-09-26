@@ -14,6 +14,7 @@ import {
   Tab,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   Divider,
 } from '@mui/material';
@@ -112,9 +113,14 @@ const Chatbot: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post<ChatResponse>('http://localhost:5000/api/chat', {
+      const response = await axios.post<ChatResponse>('http://localhost:5001/api/chatbot/chat', {
         message,
         context,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        }
       });
 
       const aiMessage: ChatMessage = {
@@ -125,10 +131,14 @@ const Chatbot: React.FC = () => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Chatbot error:', error);
+      
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: 'I\'m having trouble connecting right now. Please make sure the backend server is running, or try these general tips:\n\n• Test your soil regularly for pH and nutrients\n• Rotate crops to maintain soil health\n• Use integrated pest management\n• Monitor weather conditions for planning\n• Contact your local agricultural extension office',
+        text: error.response?.status === 401 
+          ? 'Please log in to continue using the chatbot.'
+          : 'I\'m having trouble connecting right now. Please make sure you\'re logged in and try again. Here are some general farming tips:\n\n• Test your soil regularly for pH and nutrients\n• Rotate crops to maintain soil health\n• Use integrated pest management\n• Monitor weather conditions for planning\n• Contact your local agricultural extension office',
         isUser: false,
         timestamp: new Date(),
       };
@@ -143,62 +153,33 @@ const Chatbot: React.FC = () => {
   };
 
   const sendSpecializedQuery = async (type: string, data: any) => {
-    let endpoint = '';
+    let message = '';
     let context = {};
 
     switch (type) {
       case 'crop-recommendation':
-        endpoint = '/api/chat/crop-recommendations';
-        context = { type: 'crop_recommendation' };
+        message = `Please recommend crops suitable for: ${JSON.stringify(data)}`;
+        context = { type: 'crop_recommendation', data };
         break;
       case 'problem-analysis':
-        endpoint = '/api/chat/analyze-problem';
-        context = { type: 'problem_analysis' };
+        message = `Please analyze this farming problem: ${JSON.stringify(data)}`;
+        context = { type: 'problem_analysis', data };
         break;
       case 'weather-advice':
-        endpoint = '/api/chat/weather-advice';
-        context = { type: 'weather_advice' };
+        message = `Please provide weather-related farming advice for: ${JSON.stringify(data)}`;
+        context = { type: 'weather_advice', data };
         break;
       default:
         return;
     }
 
-    setLoading(true);
-    try {
-      const response = await axios.post<ChatResponse>(`http://localhost:5000${endpoint}`, data);
-      
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: `Requesting ${type.replace('-', ' ')}...`,
-        isUser: true,
-        timestamp: new Date(),
-        context,
-      };
-
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: response.data.response || response.data.fallback_response || 'Request processed.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, userMessage, aiMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: 'Unable to process specialized query. Please try a general question instead.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
+    // Use the regular chat function instead of specialized endpoints
+    await sendMessage(message, context);
   };
 
   const clearChat = async () => {
     try {
-      await axios.post('http://localhost:5000/api/chat/clear');
+      await axios.post('http://localhost:5001/api/chatbot/clear-history');
     } catch (error) {
       console.log('Could not clear server-side chat history');
     }
@@ -419,17 +400,18 @@ const Chatbot: React.FC = () => {
             <List>
               {sampleQuestions.map((question, index) => (
                 <React.Fragment key={index}>
-                  <ListItem
-                    button
-                    onClick={() => {
-                      setActiveTab(0);
-                      sendMessage(question);
-                    }}
-                  >
-                    <ListItemText
-                      primary={question}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                    />
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={() => {
+                        setActiveTab(0);
+                        sendMessage(question);
+                      }}
+                    >
+                      <ListItemText
+                        primary={question}
+                        primaryTypographyProps={{ variant: 'body2' }}
+                      />
+                    </ListItemButton>
                   </ListItem>
                   {index < sampleQuestions.length - 1 && <Divider />}
                 </React.Fragment>

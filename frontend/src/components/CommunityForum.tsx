@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -111,7 +110,7 @@ const CommunityForum: React.FC = () => {
       if (selectedCategory) params.append('category', selectedCategory);
       params.append('limit', '20');
 
-      const response = await axios.get(`http://localhost:5000/api/forum/posts?${params}`);
+      const response = await axios.get(`http://localhost:5001/api/forum/posts?${params}`);
       if (response.data.success) {
         setPosts(response.data.posts);
       }
@@ -128,7 +127,7 @@ const CommunityForum: React.FC = () => {
 
   const fetchPostDetail = async (postId: string) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/forum/posts/${postId}`);
+      const response = await axios.get(`http://localhost:5001/api/forum/posts/${postId}`);
       if (response.data.success) {
         setSelectedPost(response.data.post);
         setDialogOpen(true);
@@ -140,7 +139,7 @@ const CommunityForum: React.FC = () => {
 
   const createPost = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/api/forum/posts', {
+      const response = await axios.post('http://localhost:5001/api/forum/posts', {
         ...newPost,
         author: currentUser,
       });
@@ -160,7 +159,7 @@ const CommunityForum: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:5000/api/forum/posts/${selectedPost._id}/replies`,
+        `http://localhost:5001/api/forum/posts/${selectedPost._id}/replies`,
         {
           content: newReply,
           author: currentUser,
@@ -179,7 +178,7 @@ const CommunityForum: React.FC = () => {
 
   const likePost = async (postId: string) => {
     try {
-      await axios.post(`http://localhost:5000/api/forum/posts/${postId}/like`, {
+      await axios.post(`http://localhost:5001/api/forum/posts/${postId}/like`, {
         user: currentUser,
       });
       fetchPosts(); // Refresh posts to show updated like count
@@ -201,7 +200,7 @@ const CommunityForum: React.FC = () => {
       if (selectedLanguage) params.append('language', selectedLanguage);
       if (selectedCategory) params.append('category', selectedCategory);
 
-      const response = await axios.get(`http://localhost:5000/api/forum/search?${params}`);
+      const response = await axios.get(`http://localhost:5001/api/forum/search?${params}`);
       if (response.data.success) {
         setPosts(response.data.posts);
       }
@@ -235,8 +234,8 @@ const CommunityForum: React.FC = () => {
       {/* Search and Filters */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: 'center' }}>
+            <Box sx={{ flex: { md: 2 } }}>
               <TextField
                 fullWidth
                 label="Search posts..."
@@ -251,8 +250,8 @@ const CommunityForum: React.FC = () => {
                   ),
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 150 }}>
               <FormControl fullWidth>
                 <InputLabel>Language</InputLabel>
                 <Select
@@ -260,15 +259,15 @@ const CommunityForum: React.FC = () => {
                   onChange={(e: SelectChangeEvent) => setSelectedLanguage(e.target.value)}
                 >
                   <MenuItem value="">All Languages</MenuItem>
-                  {languages.map(lang => (
+                  {(languages || []).map(lang => (
                     <MenuItem key={lang.code} value={lang.code}>
                       {lang.name}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 150 }}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -276,15 +275,15 @@ const CommunityForum: React.FC = () => {
                   onChange={(e: SelectChangeEvent) => setSelectedCategory(e.target.value)}
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  {categories.map(category => (
+                  {(categories || []).map(category => (
                     <MenuItem key={category} value={category}>
                       {category.replace('_', ' ').toUpperCase()}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2}>
+            </Box>
+            <Box sx={{ flex: 0.8, minWidth: 120 }}>
               <Button
                 variant="contained"
                 fullWidth
@@ -293,8 +292,8 @@ const CommunityForum: React.FC = () => {
               >
                 New Post
               </Button>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </CardContent>
       </Card>
 
@@ -304,9 +303,9 @@ const CommunityForum: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          {posts.map(post => (
-            <Grid item xs={12} key={post._id}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {(posts || []).map(post => (
+            <Box key={post._id}>
               <Card 
                 sx={{ 
                   cursor: 'pointer',
@@ -340,7 +339,7 @@ const CommunityForum: React.FC = () => {
                       variant="outlined"
                       icon={<Language />}
                     />
-                    {post.tags.map(tag => (
+                    {(post.tags || []).map(tag => (
                       <Chip key={tag} label={tag} size="small" variant="outlined" />
                     ))}
                   </Box>
@@ -383,9 +382,9 @@ const CommunityForum: React.FC = () => {
                   </Box>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
 
       {/* Post Detail Dialog */}
@@ -410,11 +409,11 @@ const CommunityForum: React.FC = () => {
               <Divider sx={{ my: 2 }} />
 
               <Typography variant="h6" gutterBottom>
-                Replies ({selectedPost.replies.length})
+                Replies ({selectedPost?.replies?.length || 0})
               </Typography>
 
               <List>
-                {selectedPost.replies.map(reply => (
+                {(selectedPost?.replies || []).map(reply => (
                   <ListItem key={reply.reply_id} alignItems="flex-start">
                     <ListItemAvatar>
                       <Avatar>
@@ -484,38 +483,38 @@ const CommunityForum: React.FC = () => {
             margin="normal"
           />
 
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={6}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+            <Box sx={{ flex: 1 }}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={newPost.category}
                   onChange={(e: SelectChangeEvent) => setNewPost(prev => ({ ...prev, category: e.target.value }))}
                 >
-                  {categories.map(category => (
+                  {(categories || []).map(category => (
                     <MenuItem key={category} value={category}>
                       {category.replace('_', ' ').toUpperCase()}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={6}>
+            </Box>
+            <Box sx={{ flex: 1 }}>
               <FormControl fullWidth>
                 <InputLabel>Language</InputLabel>
                 <Select
                   value={newPost.language}
                   onChange={(e: SelectChangeEvent) => setNewPost(prev => ({ ...prev, language: e.target.value }))}
                 >
-                  {languages.map(lang => (
+                  {(languages || []).map(lang => (
                     <MenuItem key={lang.code} value={lang.code}>
                       {lang.name}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPostDialogOpen(false)}>Cancel</Button>

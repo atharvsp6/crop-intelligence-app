@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
+import { useAuth } from './context/AuthContext';
 import AuthPage from './components/AuthPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
@@ -18,6 +19,7 @@ import './App.css';
 function App() {
   const [darkMode, setDarkMode] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const { isAuthenticated } = useAuth();
 
   const theme = createTheme({
     palette: {
@@ -53,78 +55,81 @@ function App() {
         default: darkMode ? '#121212' : '#F8F9FA',
         paper: darkMode ? '#1E1E1E' : '#FFFFFF',
       },
+      text: {
+        primary: darkMode ? '#FFFFFF' : '#2C5234',
+        secondary: darkMode ? '#B0B0B0' : '#5A7C65',
+      },
     },
     typography: {
       fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
       h1: {
         fontWeight: 700,
         fontSize: '2.5rem',
-        lineHeight: 1.2,
+        color: darkMode ? '#FFFFFF' : '#2C5234',
       },
       h2: {
         fontWeight: 600,
         fontSize: '2rem',
-        lineHeight: 1.3,
+        color: darkMode ? '#FFFFFF' : '#2C5234',
       },
       h3: {
         fontWeight: 600,
-        fontSize: '1.5rem',
-        lineHeight: 1.4,
+        fontSize: '1.75rem',
+        color: darkMode ? '#FFFFFF' : '#2C5234',
       },
       h4: {
+        fontWeight: 600,
+        fontSize: '1.5rem',
+        color: darkMode ? '#FFFFFF' : '#2C5234',
+      },
+      h5: {
         fontWeight: 500,
         fontSize: '1.25rem',
-        lineHeight: 1.4,
+        color: darkMode ? '#FFFFFF' : '#2C5234',
+      },
+      h6: {
+        fontWeight: 500,
+        fontSize: '1.125rem',
+        color: darkMode ? '#FFFFFF' : '#2C5234',
       },
       body1: {
         fontSize: '1rem',
         lineHeight: 1.6,
+        color: darkMode ? '#E0E0E0' : '#5A7C65',
       },
       body2: {
         fontSize: '0.875rem',
-        lineHeight: 1.6,
+        lineHeight: 1.5,
+        color: darkMode ? '#B0B0B0' : '#7A8F85',
+      },
+      button: {
+        fontWeight: 600,
+        textTransform: 'none',
+        fontSize: '0.95rem',
       },
     },
     shape: {
       borderRadius: 12,
     },
-    shadows: [
-      'none',
-      '0px 2px 4px rgba(0,0,0,0.05)',
-      '0px 4px 8px rgba(0,0,0,0.1)',
-      '0px 8px 16px rgba(0,0,0,0.1)',
-      '0px 12px 24px rgba(0,0,0,0.15)',
-      '0px 16px 32px rgba(0,0,0,0.2)',
-      '0px 20px 40px rgba(0,0,0,0.25)',
-      '0px 24px 48px rgba(0,0,0,0.3)',
-      '0px 28px 56px rgba(0,0,0,0.35)',
-      '0px 32px 64px rgba(0,0,0,0.4)',
-      '0px 36px 72px rgba(0,0,0,0.45)',
-      '0px 40px 80px rgba(0,0,0,0.5)',
-      '0px 44px 88px rgba(0,0,0,0.55)',
-      '0px 48px 96px rgba(0,0,0,0.6)',
-      '0px 52px 104px rgba(0,0,0,0.65)',
-      '0px 56px 112px rgba(0,0,0,0.7)',
-      '0px 60px 120px rgba(0,0,0,0.75)',
-      '0px 64px 128px rgba(0,0,0,0.8)',
-      '0px 68px 136px rgba(0,0,0,0.85)',
-      '0px 72px 144px rgba(0,0,0,0.9)',
-      '0px 76px 152px rgba(0,0,0,0.95)',
-      '0px 80px 160px rgba(0,0,0,1)',
-      '0px 84px 168px rgba(0,0,0,1)',
-      '0px 88px 176px rgba(0,0,0,1)',
-      '0px 92px 184px rgba(0,0,0,1)',
-    ],
     components: {
       MuiCard: {
         styleOverrides: {
           root: {
-            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.08)',
-            borderRadius: 16,
+            borderRadius: '16px',
+            boxShadow: darkMode 
+              ? '0px 4px 20px rgba(0, 0, 0, 0.3)'
+              : '0px 4px 20px rgba(46, 125, 50, 0.1)',
+            background: darkMode 
+              ? 'linear-gradient(145deg, #1E1E1E 0%, #2A2A2A 100%)'
+              : 'linear-gradient(145deg, #FFFFFF 0%, #F8F9FA 100%)',
+            backdropFilter: 'blur(10px)',
+            border: darkMode ? '1px solid #333' : '1px solid rgba(46, 125, 50, 0.1)',
             transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
             '&:hover': {
-              transform: 'translateY(-4px)',
-              boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.12)',
+              transform: 'translateY(-2px)',
+              boxShadow: darkMode
+                ? '0px 8px 30px rgba(0, 0, 0, 0.4)'
+                : '0px 8px 30px rgba(46, 125, 50, 0.15)',
             },
           },
         },
@@ -132,9 +137,10 @@ function App() {
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 8,
-            textTransform: 'none',
+            borderRadius: '12px',
             fontWeight: 600,
+            fontSize: '0.95rem',
+            textTransform: 'none',
             padding: '10px 24px',
           },
           contained: {

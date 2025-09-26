@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Paper,
   Alert,
   CircularProgress,
@@ -76,7 +75,7 @@ const CropPredictor: React.FC = () => {
 
     try {
       const response = await axios.post<PredictionResult>(
-        'http://localhost:5000/api/predict-yield',
+        'http://localhost:5001/api/predict-yield',
         formData
       );
       setPrediction(response.data);
@@ -100,8 +99,8 @@ const CropPredictor: React.FC = () => {
         Predict crop yields using machine learning based on environmental and soil conditions
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+        <Box sx={{ flex: 1 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -206,9 +205,9 @@ const CropPredictor: React.FC = () => {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid item xs={12} md={6}>
+        <Box sx={{ flex: 1 }}>
           {prediction && (
             <Card>
               <CardContent>
@@ -297,8 +296,8 @@ const CropPredictor: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 };

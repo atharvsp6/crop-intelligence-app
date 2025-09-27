@@ -22,6 +22,7 @@ import {
   Error,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 interface DetectionResult {
   success: boolean;
@@ -71,15 +72,25 @@ const DiseaseDetector: React.FC = () => {
     setDetection(null);
 
     try {
-      const response = await axios.post<DetectionResult>(
-        'http://localhost:5001/api/detect-disease',
-        { image: selectedImage }
-      );
+      // Decide request format (use JSON for now; backend supports both). If data URL length large, still fine.
+      const isDataUrl = selectedImage.startsWith('data:image');
+
+      let response;
+      if (isDataUrl) {
+        // Send JSON with base64 string
+        response = await axios.post<DetectionResult>(`${API_BASE}/api/detect-disease`, { image: selectedImage });
+      } else {
+        const formData = new FormData();
+        formData.append('image', selectedImage as any);
+        response = await axios.post<DetectionResult>(`${API_BASE}/api/detect-disease`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
       setDetection(response.data);
     } catch (error) {
       setDetection({
         success: false,
-        error: 'Failed to connect to the server. Please ensure the backend is running.',
+        error: 'Disease detection request failed. Ensure you are logged in and try another clear plant image.',
       });
     } finally {
       setLoading(false);
@@ -339,6 +350,11 @@ const DiseaseDetector: React.FC = () => {
                 ) : (
                   <Alert severity="error">
                     {detection.error || 'Disease detection failed'}
+                    {detection && (detection as any).plant_likelihood !== undefined && (
+                      <Box sx={{ mt: 1 }}>
+                        Plant likelihood score: {((detection as any).plant_likelihood * 100).toFixed(1)}% (need clearer plant image)
+                      </Box>
+                    )}
                   </Alert>
                 )}
               </CardContent>

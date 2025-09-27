@@ -12,3 +12,5 @@ numpy
 requests
 bcrypt
 pillow
+shap
+googletrans==4.0.0rc1

@@ -13,6 +13,7 @@ import DiseaseDetector from './components/DiseaseDetector';
 import FinancialDashboard from './components/FinancialDashboard';
 import CommunityForum from './components/CommunityForum';
 import Chatbot from './components/Chatbot';
+import MultilingualChatbot from './components/MultilingualChatbot';
 import './App.css';
 
 function App() {
@@ -201,6 +202,7 @@ function App() {
                       <Route path="/financial-dashboard" element={<FinancialDashboard />} />
                       <Route path="/community-forum" element={<CommunityForum />} />
                       <Route path="/chatbot" element={<Chatbot />} />
+                      <Route path="/multilingual-chatbot" element={<MultilingualChatbot />} />
                     </Routes>
                   </Box>
                 </Box>

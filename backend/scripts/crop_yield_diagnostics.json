@@ -1,0 +1,1374 @@
+{
+  "by_crop": [
+    {
+      "crop_type": "wheat",
+      "count": 1,
+      "mean": 4200.0,
+      "std": NaN,
+      "min": 4200.0,
+      "max": 4200.0
+    },
+    {
+      "crop_type": "corn",
+      "count": 1,
+      "mean": 5200.0,
+      "std": NaN,
+      "min": 5200.0,
+      "max": 5200.0
+    },
+    {
+      "crop_type": "rice",
+      "count": 1,
+      "mean": 3800.0,
+      "std": NaN,
+      "min": 3800.0,
+      "max": 3800.0
+    },
+    {
+      "crop_type": "Other Summer Pulses",
+      "count": 10,
+      "mean": 0.8599253987,
+      "std": 0.7098068488945912,
+      "min": 0.334666667,
+      "max": 2.8
+    },
+    {
+      "crop_type": "Oilseeds total",
+      "count": 29,
+      "mean": 1.9955592676551723,
+      "std": 1.9821266266324162,
+      "min": 0.9325,
+      "max": 8.527692308
+    },
+    {
+      "crop_type": "Guar seed",
+      "count": 63,
+      "mean": 0.9518750033492064,
+      "std": 1.2967640650783885,
+      "min": 0.0,
+      "max": 10.65148148
+    },
+    {
+      "crop_type": "Cardamom",
+      "count": 74,
+      "mean": 0.1683552699054054,
+      "std": 0.3767374577408285,
+      "min": 0.0,
+      "max": 2.87
+    },
+    {
+      "crop_type": "Khesari",
+      "count": 75,
+      "mean": 0.7889407394533333,
+      "std": 0.22855161415107075,
+      "min": 0.28125,
+      "max": 1.545652174
+    },
+    {
+      "crop_type": "Moth",
+      "count": 110,
+      "mean": 0.4459953350454546,
+      "std": 0.2578066639158167,
+      "min": 0.0,
+      "max": 1.0
+    },
+    {
+      "crop_type": "Black pepper",
+      "count": 126,
+      "mean": 0.8296046303571429,
+      "std": 0.835882060203455,
+      "min": 0.141666667,
+      "max": 4.133571429
+    },
+    {
+      "crop_type": "other oilseeds",
+      "count": 126,
+      "mean": 1.7892204170396826,
+      "std": 3.952543897353811,
+      "min": 0.0,
+      "max": 21.38
+    },
+    {
+      "crop_type": "Cashewnut",
+      "count": 134,
+      "mean": 3.1204381424402983,
+      "std": 29.197474642005798,
+      "min": 0.0,
+      "max": 338.5489655
+    },
+    {
+      "crop_type": "Cowpea(Lobia)",
+      "count": 134,
+      "mean": 0.8132239215895523,
+      "std": 0.49120427654339627,
+      "min": 0.0,
+      "max": 2.523333333
+    },
+    {
+      "crop_type": "Other Cereals",
+      "count": 146,
+      "mean": 0.8495458645616438,
+      "std": 0.5320839092130232,
+      "min": 0.095454545,
+      "max": 4.394
+    },
+    {
+      "crop_type": "Sannhamp",
+      "count": 160,
+      "mean": 1.27495866810625,
+      "std": 1.7386675093277875,
+      "min": 0.0,
+      "max": 6.622608696
+    },
+    {
+      "crop_type": "Arecanut",
+      "count": 162,
+      "mean": 2.073635437234568,
+      "std": 2.337036009722531,
+      "min": 0.0,
+      "max": 10.94818182
+    },
+    {
+      "crop_type": "Safflower",
+      "count": 169,
+      "mean": 0.5654818957928993,
+      "std": 0.2370296179516746,
+      "min": 0.0,
+      "max": 1.256666667
+    },
+    {
+      "crop_type": "Coconut",
+      "count": 172,
+      "mean": 8652.000198744186,
+      "std": 3772.524093249745,
+      "min": 0.0,
+      "max": 21105.0
+    },
+    {
+      "crop_type": "Jute",
+      "count": 181,
+      "mean": 7.555392696430939,
+      "std": 5.019372215554522,
+      "min": 0.0,
+      "max": 25.43055556
+    },
+    {
+      "crop_type": "Niger seed",
+      "count": 192,
+      "mean": 0.423523330609375,
+      "std": 0.4002365842188033,
+      "min": 0.0,
+      "max": 4.987647059
+    },
+    {
+      "crop_type": "Coriander",
+      "count": 199,
+      "mean": 0.6482002338542713,
+      "std": 0.7296765462239043,
+      "min": 0.0,
+      "max": 5.4925
+    },
+    {
+      "crop_type": "Tapioca",
+      "count": 201,
+      "mean": 16.66730148311443,
+      "std": 11.329863863250345,
+      "min": 0.0,
+      "max": 42.09785714
+    },
+    {
+      "crop_type": "Mesta",
+      "count": 210,
+      "mean": 5.389203528904762,
+      "std": 3.4079724292644413,
+      "min": 0.0,
+      "max": 17.67875
+    },
+    {
+      "crop_type": "Banana",
+      "count": 245,
+      "mean": 26.851127854040815,
+      "std": 20.428811372198446,
+      "min": 0.0,
+      "max": 126.3876923
+    },
+    {
+      "crop_type": "Garlic",
+      "count": 250,
+      "mean": 4.544885948904,
+      "std": 3.875642019611459,
+      "min": 0.0,
+      "max": 17.0
+    },
+    {
+      "crop_type": "Sweet potato",
+      "count": 273,
+      "mean": 9.240788497794872,
+      "std": 5.014707387645564,
+      "min": 0.0,
+      "max": 26.33944444
+    },
+    {
+      "crop_type": "Barley",
+      "count": 297,
+      "mean": 1.5955400493097642,
+      "std": 0.9152567318866562,
+      "min": 0.26,
+      "max": 3.988235294
+    },
+    {
+      "crop_type": "Castor seed",
+      "count": 300,
+      "mean": 0.6936094939966667,
+      "std": 0.46393660643369755,
+      "min": 0.07,
+      "max": 2.466333333
+    },
+    {
+      "crop_type": "Linseed",
+      "count": 308,
+      "mean": 0.47393049192532466,
+      "std": 0.22366760875046285,
+      "min": 0.0,
+      "max": 1.213333333
+    },
+    {
+      "crop_type": "Ginger",
+      "count": 323,
+      "mean": 6.442201573232198,
+      "std": 6.3730047122998705,
+      "min": 0.0,
+      "max": 36.35782609
+    },
+    {
+      "crop_type": "Masoor",
+      "count": 324,
+      "mean": 0.7031530066604939,
+      "std": 0.23912903251547538,
+      "min": 0.258888889,
+      "max": 2.12375
+    },
+    {
+      "crop_type": "Turmeric",
+      "count": 337,
+      "mean": 3.325392493047478,
+      "std": 3.4423317212551834,
+      "min": 0.0,
+      "max": 19.30891304
+    },
+    {
+      "crop_type": "Soyabean",
+      "count": 349,
+      "mean": 1.0831943599426934,
+      "std": 0.41849065009470277,
+      "min": 0.0,
+      "max": 2.845
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "count": 355,
+      "mean": 0.7803798285887323,
+      "std": 0.511245489934344,
+      "min": 0.0,
+      "max": 4.0
+    },
+    {
+      "crop_type": "Tobacco",
+      "count": 364,
+      "mean": 2.110708415263736,
+      "std": 3.6554769263968363,
+      "min": 0.0,
+      "max": 57.1205
+    },
+    {
+      "crop_type": "Peas & beans (Pulses)",
+      "count": 369,
+      "mean": 1.3938954407669375,
+      "std": 1.7633069574923925,
+      "min": 0.211666667,
+      "max": 13.10181818
+    },
+    {
+      "crop_type": "Horse-gram",
+      "count": 371,
+      "mean": 0.4628220138005391,
+      "std": 0.225086511852477,
+      "min": 0.0,
+      "max": 1.3
+    },
+    {
+      "crop_type": "Other Kharif pulses",
+      "count": 382,
+      "mean": 0.6995134804162303,
+      "std": 0.37028564091187677,
+      "min": 0.0,
+      "max": 2.8
+    },
+    {
+      "crop_type": "Dry chillies",
+      "count": 419,
+      "mean": 2.078329703491647,
+      "std": 2.4165774349226425,
+      "min": 0.205,
+      "max": 14.0
+    },
+    {
+      "crop_type": "Sunflower",
+      "count": 441,
+      "mean": 0.9340864302335601,
+      "std": 0.5203975253134167,
+      "min": 0.0,
+      "max": 5.02
+    },
+    {
+      "crop_type": "Onion",
+      "count": 454,
+      "mean": 13.247524628323788,
+      "std": 23.60376770833148,
+      "min": 0.0,
+      "max": 381.42
+    },
+    {
+      "crop_type": "Cotton(lint)",
+      "count": 476,
+      "mean": 1.7970441190063025,
+      "std": 4.4594622500014705,
+      "min": 0.0,
+      "max": 95.99391304
+    },
+    {
+      "crop_type": "Small millets",
+      "count": 485,
+      "mean": 0.7687220714474228,
+      "std": 0.3548052792067722,
+      "min": 0.0,
+      "max": 2.8775
+    },
+    {
+      "crop_type": "Gram",
+      "count": 490,
+      "mean": 0.8764689137326531,
+      "std": 0.5435099852070224,
+      "min": 0.0,
+      "max": 9.38
+    },
+    {
+      "crop_type": "Ragi",
+      "count": 498,
+      "mean": 1.215408287676707,
+      "std": 0.6883063691232353,
+      "min": 0.0775,
+      "max": 4.336538462
+    },
+    {
+      "crop_type": "Arhar/Tur",
+      "count": 508,
+      "mean": 0.967347756984252,
+      "std": 3.0097759953516743,
+      "min": 0.136666667,
+      "max": 68.23
+    },
+    {
+      "crop_type": "Jowar",
+      "count": 513,
+      "mean": 1.0724982779980505,
+      "std": 0.5185302912459748,
+      "min": 0.003571429,
+      "max": 3.579090909
+    },
+    {
+      "crop_type": "Bajra",
+      "count": 524,
+      "mean": 2.4274620064561065,
+      "std": 6.600671940745631,
+      "min": 0.208,
+      "max": 74.30307692
+    },
+    {
+      "crop_type": "Rapeseed &Mustard",
+      "count": 528,
+      "mean": 0.7915678563996212,
+      "std": 0.583337925383131,
+      "min": 0.08,
+      "max": 6.345
+    },
+    {
+      "crop_type": "Wheat",
+      "count": 545,
+      "mean": 2.0050864420862387,
+      "std": 1.0804657643132722,
+      "min": 0.0,
+      "max": 5.068636364
+    },
+    {
+      "crop_type": "Sugarcane",
+      "count": 605,
+      "mean": 51.72743941127438,
+      "std": 30.60871313803522,
+      "min": 0.29,
+      "max": 165.0
+    },
+    {
+      "crop_type": "Potato",
+      "count": 628,
+      "mean": 13.331717759538218,
+      "std": 20.328776158867477,
+      "min": 0.0,
+      "max": 311.02
+    },
+    {
+      "crop_type": "Sesamum",
+      "count": 685,
+      "mean": 0.6117499490642335,
+      "std": 2.9122623092746918,
+      "min": 0.0,
+      "max": 69.36666667
+    },
+    {
+      "crop_type": "Groundnut",
+      "count": 725,
+      "mean": 1.360983478711724,
+      "std": 0.623429358508457,
+      "min": 0.204166667,
+      "max": 3.673448276
+    },
+    {
+      "crop_type": "Urad",
+      "count": 733,
+      "mean": 0.5840477716793997,
+      "std": 0.301862151827221,
+      "min": 0.0,
+      "max": 4.1875
+    },
+    {
+      "crop_type": "Moong(Green Gram)",
+      "count": 740,
+      "mean": 0.5309404007337838,
+      "std": 0.25341687766380955,
+      "min": 0.0,
+      "max": 1.773333333
+    },
+    {
+      "crop_type": "Maize",
+      "count": 975,
+      "mean": 3.4272159774543587,
+      "std": 31.688399326133144,
+      "min": 0.0,
+      "max": 989.87
+    },
+    {
+      "crop_type": "Rice",
+      "count": 1197,
+      "mean": 2.218494541018379,
+      "std": 0.8024593804955839,
+      "min": 0.016666667,
+      "max": 8.778275862
+    }
+  ],
+  "by_crop_state": [
+    {
+      "crop_type": "other oilseeds",
+      "state": "Punjab",
+      "count": 1,
+      "mean": 1.39,
+      "std": NaN,
+      "min": 1.39,
+      "max": 1.39
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Kerala",
+      "count": 1,
+      "mean": 1.098888889,
+      "std": NaN,
+      "min": 1.098888889,
+      "max": 1.098888889
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Punjab",
+      "count": 1,
+      "mean": 1.006363636,
+      "std": NaN,
+      "min": 1.006363636,
+      "max": 1.006363636
+    },
+    {
+      "crop_type": "Other Kharif pulses",
+      "state": "Uttar Pradesh",
+      "count": 1,
+      "mean": 0.543857143,
+      "std": NaN,
+      "min": 0.543857143,
+      "max": 0.543857143
+    },
+    {
+      "crop_type": "Onion",
+      "state": "Maharashtra",
+      "count": 1,
+      "mean": 12.44846154,
+      "std": NaN,
+      "min": 12.44846154,
+      "max": 12.44846154
+    },
+    {
+      "crop_type": "Oilseeds total",
+      "state": "Gujarat",
+      "count": 1,
+      "mean": 1.342105263,
+      "std": NaN,
+      "min": 1.342105263,
+      "max": 1.342105263
+    },
+    {
+      "crop_type": "Banana",
+      "state": "Maharashtra",
+      "count": 1,
+      "mean": 57.56857143,
+      "std": NaN,
+      "min": 57.56857143,
+      "max": 57.56857143
+    },
+    {
+      "crop_type": "Tobacco",
+      "state": "Puducherry",
+      "count": 1,
+      "mean": 30.17,
+      "std": NaN,
+      "min": 30.17,
+      "max": 30.17
+    },
+    {
+      "crop_type": "Coriander",
+      "state": "Jammu and Kashmir",
+      "count": 1,
+      "mean": 0.125,
+      "std": NaN,
+      "min": 0.125,
+      "max": 0.125
+    },
+    {
+      "crop_type": "Coconut",
+      "state": "Mizoram",
+      "count": 1,
+      "mean": 2.595,
+      "std": NaN,
+      "min": 2.595,
+      "max": 2.595
+    },
+    {
+      "crop_type": "Peas & beans (Pulses)",
+      "state": "Odisha",
+      "count": 1,
+      "mean": 0.77,
+      "std": NaN,
+      "min": 0.77,
+      "max": 0.77
+    },
+    {
+      "crop_type": "Rapeseed &Mustard",
+      "state": "Delhi",
+      "count": 1,
+      "mean": 2.5,
+      "std": NaN,
+      "min": 2.5,
+      "max": 2.5
+    },
+    {
+      "crop_type": "Cashewnut",
+      "state": "Madhya Pradesh",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Jute",
+      "state": "Haryana",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Sweet potato",
+      "state": "Himachal Pradesh",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Sannhamp",
+      "state": "Uttarakhand",
+      "count": 1,
+      "mean": 0.31,
+      "std": NaN,
+      "min": 0.31,
+      "max": 0.31
+    },
+    {
+      "crop_type": "Dry chillies",
+      "state": "Uttarakhand",
+      "count": 1,
+      "mean": 0.3025,
+      "std": NaN,
+      "min": 0.3025,
+      "max": 0.3025
+    },
+    {
+      "crop_type": "Soyabean",
+      "state": "Odisha",
+      "count": 1,
+      "mean": 0.17,
+      "std": NaN,
+      "min": 0.17,
+      "max": 0.17
+    },
+    {
+      "crop_type": "Soyabean",
+      "state": "Tamil Nadu",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Sunflower",
+      "state": "Kerala",
+      "count": 1,
+      "mean": 1.0,
+      "std": NaN,
+      "min": 1.0,
+      "max": 1.0
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Kerala",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Soyabean",
+      "state": "Bihar",
+      "count": 1,
+      "mean": 0.75,
+      "std": NaN,
+      "min": 0.75,
+      "max": 0.75
+    },
+    {
+      "crop_type": "Garlic",
+      "state": "Meghalaya",
+      "count": 1,
+      "mean": 1.79,
+      "std": NaN,
+      "min": 1.79,
+      "max": 1.79
+    },
+    {
+      "crop_type": "Guar seed",
+      "state": "Tamil Nadu",
+      "count": 1,
+      "mean": 10.65148148,
+      "std": NaN,
+      "min": 10.65148148,
+      "max": 10.65148148
+    },
+    {
+      "crop_type": "Jute",
+      "state": "Tamil Nadu",
+      "count": 1,
+      "mean": 0.0,
+      "std": NaN,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Garlic",
+      "state": "West Bengal",
+      "count": 1,
+      "mean": 10.53722222,
+      "std": NaN,
+      "min": 10.53722222,
+      "max": 10.53722222
+    },
+    {
+      "crop_type": "Jowar",
+      "state": "Himachal Pradesh",
+      "count": 1,
+      "mean": 0.15,
+      "std": NaN,
+      "min": 0.15,
+      "max": 0.15
+    },
+    {
+      "crop_type": "Guar seed",
+      "state": "Chhattisgarh",
+      "count": 1,
+      "mean": 0.81,
+      "std": NaN,
+      "min": 0.81,
+      "max": 0.81
+    },
+    {
+      "crop_type": "Other Summer Pulses",
+      "state": "Uttarakhand",
+      "count": 2,
+      "mean": 0.625,
+      "std": 0.06363961030678934,
+      "min": 0.58,
+      "max": 0.67
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Haryana",
+      "count": 2,
+      "mean": 0.443076923,
+      "std": 0.6266053936811395,
+      "min": 0.0,
+      "max": 0.886153846
+    },
+    {
+      "crop_type": "Barley",
+      "state": "Jharkhand",
+      "count": 2,
+      "mean": 0.7766666664999999,
+      "std": 0.23570226015981355,
+      "min": 0.61,
+      "max": 0.943333333
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Sikkim",
+      "count": 2,
+      "mean": 1.0862500000000002,
+      "std": 0.037123106012293815,
+      "min": 1.06,
+      "max": 1.1125
+    },
+    {
+      "crop_type": "Cowpea(Lobia)",
+      "state": "Odisha",
+      "count": 2,
+      "mean": 0.7369333335,
+      "std": 0.008862404755169083,
+      "min": 0.730666667,
+      "max": 0.7432
+    },
+    {
+      "crop_type": "Black pepper",
+      "state": "Andhra Pradesh",
+      "count": 2,
+      "mean": 0.875,
+      "std": 0.1767766952966369,
+      "min": 0.75,
+      "max": 1.0
+    },
+    {
+      "crop_type": "Potato",
+      "state": "Sikkim",
+      "count": 2,
+      "mean": 4.7775,
+      "std": 0.45608387386532284,
+      "min": 4.455,
+      "max": 5.1
+    },
+    {
+      "crop_type": "Arhar/Tur",
+      "state": "Jammu and Kashmir",
+      "count": 2,
+      "mean": 0.55,
+      "std": 0.0,
+      "min": 0.55,
+      "max": 0.55
+    },
+    {
+      "crop_type": "Masoor",
+      "state": "Andhra Pradesh",
+      "count": 2,
+      "mean": 0.360576923,
+      "std": 0.020397311104551463,
+      "min": 0.346153846,
+      "max": 0.375
+    },
+    {
+      "crop_type": "Cotton(lint)",
+      "state": "Bihar",
+      "count": 2,
+      "mean": 2.025,
+      "std": 0.03535533905932725,
+      "min": 2.0,
+      "max": 2.05
+    },
+    {
+      "crop_type": "Dry chillies",
+      "state": "Nagaland",
+      "count": 2,
+      "mean": 1.262840909,
+      "std": 0.006588949680530432,
+      "min": 1.258181818,
+      "max": 1.2675
+    },
+    {
+      "crop_type": "Jowar",
+      "state": "Uttarakhand",
+      "count": 2,
+      "mean": 0.7350000000000001,
+      "std": 0.09192388155425114,
+      "min": 0.67,
+      "max": 0.8
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Gujarat",
+      "count": 2,
+      "mean": 0.3943094625,
+      "std": 0.08541343557567488,
+      "min": 0.333913043,
+      "max": 0.454705882
+    },
+    {
+      "crop_type": "Gram",
+      "state": "Mizoram",
+      "count": 2,
+      "mean": 1.046666667,
+      "std": 0.18384776310850248,
+      "min": 0.916666667,
+      "max": 1.176666667
+    },
+    {
+      "crop_type": "Linseed",
+      "state": "Tripura",
+      "count": 2,
+      "mean": 0.697142857,
+      "std": 0.004040610380239283,
+      "min": 0.694285714,
+      "max": 0.7
+    },
+    {
+      "crop_type": "Khesari",
+      "state": "Tripura",
+      "count": 2,
+      "mean": 0.668857143,
+      "std": 0.023839600253462632,
+      "min": 0.652,
+      "max": 0.685714286
+    },
+    {
+      "crop_type": "Dry chillies",
+      "state": "Kerala",
+      "count": 2,
+      "mean": 0.956388889,
+      "std": 0.026320085587031115,
+      "min": 0.937777778,
+      "max": 0.975
+    },
+    {
+      "crop_type": "Sunflower",
+      "state": "Mizoram",
+      "count": 2,
+      "mean": 0.885,
+      "std": 0.5161879502661797,
+      "min": 0.52,
+      "max": 1.25
+    },
+    {
+      "crop_type": "Soyabean",
+      "state": "Haryana",
+      "count": 2,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Gram",
+      "state": "Kerala",
+      "count": 2,
+      "mean": 0.7354464285,
+      "std": 0.044825519063489076,
+      "min": 0.70375,
+      "max": 0.767142857
+    },
+    {
+      "crop_type": "Niger seed",
+      "state": "Bihar",
+      "count": 2,
+      "mean": 0.6107794120000001,
+      "std": 0.008880429614128379,
+      "min": 0.6045,
+      "max": 0.617058824
+    },
+    {
+      "crop_type": "Tobacco",
+      "state": "Haryana",
+      "count": 2,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Turmeric",
+      "state": "Nagaland",
+      "count": 2,
+      "mean": 4.4376136365,
+      "std": 0.17661598901715617,
+      "min": 4.312727273,
+      "max": 4.5625
+    },
+    {
+      "crop_type": "Niger seed",
+      "state": "Tamil Nadu",
+      "count": 2,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Uttar Pradesh",
+      "count": 2,
+      "mean": 1.0415,
+      "std": 0.030809652204781428,
+      "min": 1.019714286,
+      "max": 1.063285714
+    },
+    {
+      "crop_type": "Banana",
+      "state": "Haryana",
+      "count": 2,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Coconut",
+      "state": "Telangana",
+      "count": 2,
+      "mean": 18679.5,
+      "std": 3430.174995535942,
+      "min": 16254.0,
+      "max": 21105.0
+    },
+    {
+      "crop_type": "Masoor",
+      "state": "Tamil Nadu",
+      "count": 2,
+      "mean": 1.135130952,
+      "std": 0.10069537288345634,
+      "min": 1.063928571,
+      "max": 1.206333333
+    },
+    {
+      "crop_type": "Cardamom",
+      "state": "Nagaland",
+      "count": 3,
+      "mean": 0.8177500000000001,
+      "std": 0.6906180655760462,
+      "min": 0.35875,
+      "max": 1.612
+    },
+    {
+      "crop_type": "Moong(Green Gram)",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.777022947,
+      "std": 0.03780676137360049,
+      "min": 0.734166667,
+      "max": 0.805652174
+    },
+    {
+      "crop_type": "Moong(Green Gram)",
+      "state": "Kerala",
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Mesta",
+      "state": "Odisha",
+      "count": 3,
+      "mean": 4.204251852,
+      "std": 0.5598301440018121,
+      "min": 3.855555556,
+      "max": 4.85
+    },
+    {
+      "crop_type": "Other Kharif pulses",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 0.4388888886666667,
+      "std": 0.14303586695754425,
+      "min": 0.343333333,
+      "max": 0.603333333
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Tamil Nadu",
+      "count": 3,
+      "mean": 0.7127222223333334,
+      "std": 0.059137395130292134,
+      "min": 0.66,
+      "max": 0.776666667
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 0.91,
+      "std": 0.5338773267333985,
+      "min": 0.305,
+      "max": 1.315
+    },
+    {
+      "crop_type": "Other Kharif pulses",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.623008113,
+      "std": 0.046662017297600084,
+      "min": 0.573043478,
+      "max": 0.665454545
+    },
+    {
+      "crop_type": "Sesamum",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.40090263533333337,
+      "std": 0.029538594114737117,
+      "min": 0.366818182,
+      "max": 0.419047619
+    },
+    {
+      "crop_type": "Cowpea(Lobia)",
+      "state": "Kerala",
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Jowar",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.7140351696666668,
+      "std": 0.0973290160822792,
+      "min": 0.622777778,
+      "max": 0.816470588
+    },
+    {
+      "crop_type": "Horse-gram",
+      "state": "Kerala",
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Guar seed",
+      "state": "Andhra Pradesh",
+      "count": 3,
+      "mean": 0.6333333333333333,
+      "std": 1.0969655114602888,
+      "min": 0.0,
+      "max": 1.9
+    },
+    {
+      "crop_type": "Jute",
+      "state": "Uttar Pradesh",
+      "count": 3,
+      "mean": 0.8016666666666666,
+      "std": 0.09087537253477058,
+      "min": 0.7,
+      "max": 0.875
+    },
+    {
+      "crop_type": "Other  Rabi pulses",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.7032789856666666,
+      "std": 0.009589700980505328,
+      "min": 0.696086957,
+      "max": 0.714166667
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 14.731111110999999,
+      "std": 6.251152190246447,
+      "min": 8.973333333,
+      "max": 21.38
+    },
+    {
+      "crop_type": "Other Cereals",
+      "state": "Puducherry",
+      "count": 3,
+      "mean": 2.033333333333333,
+      "std": 0.49318691520896335,
+      "min": 1.6,
+      "max": 2.57
+    },
+    {
+      "crop_type": "Urad",
+      "state": "Kerala",
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Linseed",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.5647584543333334,
+      "std": 0.03010538930807944,
+      "min": 0.53,
+      "max": 0.582608696
+    },
+    {
+      "crop_type": "Masoor",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 0.4166666666666667,
+      "std": 0.08326663997864533,
+      "min": 0.35,
+      "max": 0.51
+    },
+    {
+      "crop_type": "Rapeseed &Mustard",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 1.159111111,
+      "std": 0.4102142169025386,
+      "min": 0.834,
+      "max": 1.62
+    },
+    {
+      "crop_type": "Niger seed",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.5031045753333333,
+      "std": 0.018679579478281996,
+      "min": 0.481666667,
+      "max": 0.515882353
+    },
+    {
+      "crop_type": "Castor seed",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.4994444443333333,
+      "std": 0.022381374651622644,
+      "min": 0.483333333,
+      "max": 0.525
+    },
+    {
+      "crop_type": "Rapeseed &Mustard",
+      "state": "Puducherry",
+      "count": 3,
+      "mean": 6.211111111,
+      "std": 0.1674675205314833,
+      "min": 6.023333333,
+      "max": 6.345
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Tripura",
+      "count": 3,
+      "mean": 0.7355555556666666,
+      "std": 0.035132026219623295,
+      "min": 0.695,
+      "max": 0.756666667
+    },
+    {
+      "crop_type": "Horse-gram",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.6339841270000001,
+      "std": 0.010098194884790882,
+      "min": 0.625714286,
+      "max": 0.645238095
+    },
+    {
+      "crop_type": "Soyabean",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.8228418803333333,
+      "std": 0.054530613671445086,
+      "min": 0.76,
+      "max": 0.857692308
+    },
+    {
+      "crop_type": "Groundnut",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.942916667,
+      "std": 0.030336652748779003,
+      "min": 0.924166667,
+      "max": 0.977916667
+    },
+    {
+      "crop_type": "Bajra",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.6157051283333334,
+      "std": 0.021066544695307995,
+      "min": 0.6025,
+      "max": 0.64
+    },
+    {
+      "crop_type": "Sannhamp",
+      "state": "Andhra Pradesh",
+      "count": 3,
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    {
+      "crop_type": "Linseed",
+      "state": "Telangana",
+      "count": 3,
+      "mean": 0.44,
+      "std": 0.045825756949558386,
+      "min": 0.4,
+      "max": 0.49
+    },
+    {
+      "crop_type": "Sannhamp",
+      "state": "Odisha",
+      "count": 3,
+      "mean": 4.292833333333333,
+      "std": 0.5831046932870059,
+      "min": 3.852,
+      "max": 4.954
+    },
+    {
+      "crop_type": "Safflower",
+      "state": "Jharkhand",
+      "count": 3,
+      "mean": 0.542742674,
+      "std": 0.06113878811706129,
+      "min": 0.484285714,
+      "max": 0.60625
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Goa",
+      "count": 3,
+      "mean": 2.283333333333333,
+      "std": 0.37404322388372885,
+      "min": 2.055,
+      "max": 2.715
+    },
+    {
+      "crop_type": "Jute",
+      "state": "Manipur",
+      "count": 3,
+      "mean": 2.0,
+      "std": 0.0,
+      "min": 2.0,
+      "max": 2.0
+    },
+    {
+      "crop_type": "Cotton(lint)",
+      "state": "Odisha",
+      "count": 3,
+      "mean": 2.0896269843333335,
+      "std": 1.1550732561760566,
+      "min": 1.215714286,
+      "max": 3.399166667
+    },
+    {
+      "crop_type": "Sannhamp",
+      "state": "Tamil Nadu",
+      "count": 4,
+      "mean": 0.55359375,
+      "std": 0.3692702456506842,
+      "min": 0.0,
+      "max": 0.755
+    },
+    {
+      "crop_type": "other oilseeds",
+      "state": "Arunachal Pradesh",
+      "count": 4,
+      "mean": 1.12229166675,
+      "std": 0.022703554515513334,
+      "min": 1.0925,
+      "max": 1.14
+    },
+    {
+      "crop_type": "Arhar/Tur",
+      "state": "Arunachal Pradesh",
+      "count": 4,
+      "mean": 0.815047123,
+      "std": 0.053805260599478114,
+      "min": 0.761428571,
+      "max": 0.872777778
+    },
+    {
+      "crop_type": "Groundnut",
+      "state": "Mizoram",
+      "count": 4,
+      "mean": 1.1369166665,
+      "std": 0.30816943089578114,
+      "min": 0.833333333,
+      "max": 1.483333333
+    },
+    {
+      "crop_type": "Wheat",
+      "state": "Mizoram",
+      "count": 4,
+      "mean": 0.9500000000000001,
+      "std": 0.35185224171518364,
+      "min": 0.5,
+      "max": 1.33
+    },
+    {
+      "crop_type": "Masoor",
+      "state": "Arunachal Pradesh",
+      "count": 4,
+      "mean": 0.72125320525,
+      "std": 0.20558831593817622,
+      "min": 0.511,
+      "max": 0.923846154
+    },
+    {
+      "crop_type": "Coriander",
+      "state": "Meghalaya",
+      "count": 4,
+      "mean": 4.178125,
+      "std": 0.8762515216344371,
+      "min": 3.738,
+      "max": 5.4925
+    },
+    {
+      "crop_type": "Castor seed",
+      "state": "Uttar Pradesh",
+      "count": 4,
+      "mean": 0.7144574175,
+      "std": 0.09511766754081116,
+      "min": 0.601428571,
+      "max": 0.814285714
+    }
+  ],
+  "balance_strategy": "sample_weight",
+  "balance_key": "crop",
+  "rare_threshold": 40,
+  "target_transform": "log1p"
+}

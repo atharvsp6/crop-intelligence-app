@@ -23,6 +23,7 @@ import {
   Agriculture,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import { AuthContext } from '../context/AuthContext';
 
 interface TabPanelProps {
@@ -95,7 +96,7 @@ const AuthPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/login', {
+  const response = await axios.post(`${API_BASE}/api/auth/login`, {
         email: loginForm.email,
         password: loginForm.password,
       });
@@ -135,7 +136,7 @@ const AuthPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/register', {
+  const response = await axios.post(`${API_BASE}/api/auth/register`, {
         username: registerForm.name,
         email: registerForm.email,
         password: registerForm.password,

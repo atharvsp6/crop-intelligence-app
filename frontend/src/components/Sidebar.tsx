@@ -33,6 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open }) => {
     { text: 'Financial Dashboard', icon: <TrendingUp />, path: '/financial-dashboard' },
     { text: 'Community Forum', icon: <Forum />, path: '/community-forum' },
     { text: 'AI Chatbot', icon: <Chat />, path: '/chatbot' },
+    { text: 'Multilingual Chat', icon: <Chat />, path: '/multilingual-chatbot' },
   ];
 
   return (

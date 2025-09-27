@@ -20,7 +20,7 @@ A comprehensive full-stack crop intelligence platform for farmers, built with Fl
 crop-intelligence-app/
 │
 ├── backend/                    # Flask API server
-│   ├── app.py                 # Main Flask application with 25+ API endpoints
+│   ├── app_integrated.py      # Unified Flask application (all API endpoints)
 │   ├── database.py            # MongoDB connection and data management
 │   ├── crop_predictor.py      # ML-based yield prediction module
 │   ├── disease_detector.py    # AI-powered disease detection
@@ -78,11 +78,11 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your MongoDB URI and Gemini API key
 
-# Start Flask server
-python app.py
+# Start Flask server (integrated)
+python app_integrated.py
 ```
 
-The backend will start on `http://localhost:5000`
+The backend will start on `http://localhost:5001`
 
 ### 3. Frontend Setup
 ```bash
@@ -126,7 +126,7 @@ MONGO_URI=mongodb://localhost:27017/crop_intelligence
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Server configuration
-PORT=5000
+PORT=5001
 ```
 
 ## 📋 API Endpoints

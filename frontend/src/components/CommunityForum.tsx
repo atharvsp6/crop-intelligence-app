@@ -35,6 +35,7 @@ import {
   Send,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 interface ForumPost {
   _id: string;
@@ -110,7 +111,7 @@ const CommunityForum: React.FC = () => {
       if (selectedCategory) params.append('category', selectedCategory);
       params.append('limit', '20');
 
-      const response = await axios.get(`http://localhost:5001/api/forum/posts?${params}`);
+  const response = await axios.get(`${API_BASE}/api/forum/posts?${params}`);
       if (response.data.success) {
         setPosts(response.data.posts);
       }
@@ -127,7 +128,7 @@ const CommunityForum: React.FC = () => {
 
   const fetchPostDetail = async (postId: string) => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/forum/posts/${postId}`);
+  const response = await axios.get(`${API_BASE}/api/forum/posts/${postId}`);
       if (response.data.success) {
         setSelectedPost(response.data.post);
         setDialogOpen(true);
@@ -139,7 +140,7 @@ const CommunityForum: React.FC = () => {
 
   const createPost = async () => {
     try {
-      const response = await axios.post('http://localhost:5001/api/forum/posts', {
+  const response = await axios.post(`${API_BASE}/api/forum/posts`, {
         ...newPost,
         author: currentUser,
       });
@@ -159,7 +160,7 @@ const CommunityForum: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:5001/api/forum/posts/${selectedPost._id}/replies`,
+        `${API_BASE}/api/forum/posts/${selectedPost._id}/replies`,
         {
           content: newReply,
           author: currentUser,
@@ -178,7 +179,7 @@ const CommunityForum: React.FC = () => {
 
   const likePost = async (postId: string) => {
     try {
-      await axios.post(`http://localhost:5001/api/forum/posts/${postId}/like`, {
+  await axios.post(`${API_BASE}/api/forum/posts/${postId}/like`, {
         user: currentUser,
       });
       fetchPosts(); // Refresh posts to show updated like count
@@ -200,7 +201,7 @@ const CommunityForum: React.FC = () => {
       if (selectedLanguage) params.append('language', selectedLanguage);
       if (selectedCategory) params.append('category', selectedCategory);
 
-      const response = await axios.get(`http://localhost:5001/api/forum/search?${params}`);
+  const response = await axios.get(`${API_BASE}/api/forum/search?${params}`);
       if (response.data.success) {
         setPosts(response.data.posts);
       }

@@ -20,6 +20,7 @@ import {
 import { TrendingUp, Calculate } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import { useAuth } from '../context/AuthContext';
 
 interface ROIData {
@@ -107,7 +108,7 @@ const FinancialDashboard: React.FC = () => {
   const fetchMarketTrends = async () => {
     setMarketLoading(true);
     try {
-      const response = await axios.get<MarketTrend>('http://localhost:5001/api/financial/market-trends?days=30', {
+  const response = await axios.get<MarketTrend>(`${API_BASE}/api/financial/market-trends?days=30`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMarketTrends(response.data);
@@ -127,7 +128,7 @@ const FinancialDashboard: React.FC = () => {
 
     try {
       const response = await axios.post<ROIResult>(
-        'http://localhost:5001/api/financial/roi',
+        `${API_BASE}/api/financial/roi`,
         roiData,
         { headers: { Authorization: `Bearer ${token}` } }
       );

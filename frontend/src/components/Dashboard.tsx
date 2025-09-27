@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -71,7 +72,7 @@ const Dashboard: React.FC = () => {
 
   const fetchWeatherData = async (lat: number, lon: number) => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/weather/current?lat=${lat}&lon=${lon}`);
+  const response = await axios.get(`${API_BASE}/api/weather/current?lat=${lat}&lon=${lon}`);
       
       if (response.data.success) {
         const weatherData = response.data.current;

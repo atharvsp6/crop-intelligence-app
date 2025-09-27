@@ -24,6 +24,7 @@ import {
   Warning,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 interface WeatherData {
   temperature: number;
@@ -82,13 +83,13 @@ const WeatherComponent: React.FC = () => {
 
     try {
       // Fetch current weather
-      const currentWeather = await axios.get(`http://localhost:5001/api/weather/current?lat=${lat}&lon=${lon}`);
+  const currentWeather = await axios.get(`${API_BASE}/api/weather/current?lat=${lat}&lon=${lon}`);
       
       // Fetch forecast
-      const forecastData = await axios.get(`http://localhost:5001/api/weather/forecast?lat=${lat}&lon=${lon}&days=5`);
+  const forecastData = await axios.get(`${API_BASE}/api/weather/forecast?lat=${lat}&lon=${lon}&days=5`);
       
       // Fetch agricultural alerts
-      const alertsData = await axios.get(`http://localhost:5001/api/weather/alerts?lat=${lat}&lon=${lon}`);
+  const alertsData = await axios.get(`${API_BASE}/api/weather/alerts?lat=${lat}&lon=${lon}`);
 
       if (currentWeather.data.success) {
         const current = currentWeather.data.current;

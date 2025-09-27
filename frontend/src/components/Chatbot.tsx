@@ -28,6 +28,7 @@ import {
   Clear,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 interface ChatMessage {
   id: string;
@@ -113,7 +114,7 @@ const Chatbot: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post<ChatResponse>('http://localhost:5001/api/chatbot/chat', {
+      const response = await axios.post<ChatResponse>(`${API_BASE}/api/chatbot/chat`, {
         message,
         context,
       }, {
@@ -179,7 +180,7 @@ const Chatbot: React.FC = () => {
 
   const clearChat = async () => {
     try {
-      await axios.post('http://localhost:5001/api/chatbot/clear-history');
+  await axios.post(`${API_BASE}/api/chatbot/clear-history`);
     } catch (error) {
       console.log('Could not clear server-side chat history');
     }

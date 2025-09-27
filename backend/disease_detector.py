@@ -85,30 +85,59 @@ class DiseaseDetector:
             return False
     
     def preprocess_image(self, image_data):
-        """Preprocess image for model prediction"""
+        """Preprocess image for model prediction.
+
+        Accepts either a base64 string (optionally prefixed with data URI) or raw bytes.
+        Returns: (image_array, plant_likelihood)
+        """
         try:
-            # Decode base64 image
-            if image_data.startswith('data:image'):
-                # Remove data URL prefix
-                image_data = image_data.split(',')[1]
-            
-            image_bytes = base64.b64decode(image_data)
+            # If bytes provided convert to base64 handling uniformly
+            if isinstance(image_data, bytes):
+                image_bytes = image_data
+            else:
+                if image_data.startswith('data:image'):
+                    # Remove data URL prefix
+                    image_data = image_data.split(',')[1]
+                image_bytes = base64.b64decode(image_data)
+
             image = Image.open(io.BytesIO(image_bytes))
-            
+
             # Convert to RGB if necessary
             if image.mode != 'RGB':
                 image = image.convert('RGB')
-            
+
+            # Compute a simple "plant likelihood" heuristic on original (or current) image
+            plant_likelihood = self._estimate_plant_likelihood(image)
+
             # Resize to model input size
-            image = image.resize((224, 224))
-            
+            image_resized = image.resize((224, 224))
+
             # Convert to array and normalize
-            image_array = np.array(image) / 255.0
+            image_array = np.array(image_resized) / 255.0
             image_array = np.expand_dims(image_array, axis=0)
-            
-            return image_array
+
+            return image_array, plant_likelihood
         except Exception as e:
             raise ValueError(f"Error preprocessing image: {e}")
+
+    def _estimate_plant_likelihood(self, image):
+        """Estimate how likely the image contains plant foliage.
+
+        Heuristic: proportion of pixels where green channel dominates red & blue and is above a brightness threshold.
+        Returns float in [0,1].
+        """
+        try:
+            np_img = np.array(image)
+            if len(np_img.shape) != 3 or np_img.shape[2] < 3:
+                return 0.0
+            r = np_img[:, :, 0].astype(np.int32)
+            g = np_img[:, :, 1].astype(np.int32)
+            b = np_img[:, :, 2].astype(np.int32)
+            green_dom = (g > r + 5) & (g > b + 5) & (g > 60)
+            plant_likelihood = float(green_dom.mean())
+            return plant_likelihood
+        except Exception:
+            return 0.0
     
     def predict_disease(self, image_data):
         """Predict plant disease from image"""
@@ -121,8 +150,16 @@ class DiseaseDetector:
                         'error': 'Failed to load disease detection model'
                     }
             
-            # Preprocess image
-            processed_image = self.preprocess_image(image_data)
+            # Preprocess image & estimate plant likelihood
+            processed_image, plant_likelihood = self.preprocess_image(image_data)
+
+            # Reject if plant likelihood too low
+            if plant_likelihood < 0.12:  # threshold can be tuned
+                return {
+                    'success': False,
+                    'error': 'Image does not appear to contain a plant. Please upload a clear plant image (leaves, stem, fruit).',
+                    'plant_likelihood': plant_likelihood
+                }
             
             # Make prediction
             predictions = self.model.predict(processed_image, verbose=0)
@@ -159,7 +196,8 @@ class DiseaseDetector:
                     'condition': condition,
                     'confidence': confidence,
                     'is_healthy': 'healthy' in condition.lower(),
-                    'severity': self._assess_severity(condition, confidence)
+                    'severity': self._assess_severity(condition, confidence),
+                    'plant_likelihood': plant_likelihood
                 },
                 'top_predictions': top_3_predictions,
                 'recommendations': recommendations

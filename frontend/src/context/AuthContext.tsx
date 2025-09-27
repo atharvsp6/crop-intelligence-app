@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 interface User {
   id: string;
@@ -36,7 +37,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyToken = useCallback(async (token: string) => {
     try {
-      const response = await axios.get('http://localhost:5001/api/auth/verify', {
+  const response = await axios.get(`${API_BASE}/api/auth/verify`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

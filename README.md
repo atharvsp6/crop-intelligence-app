@@ -9,6 +9,7 @@ A comprehensive full-stack crop intelligence platform for farmers, built with Fl
 - **🤖 Crop Yield Predictor:** Machine Learning Random Forest regressor trained on MongoDB crop data for accurate yield predictions
 - **🔍 Disease Detection:** Deep learning model (TensorFlow/Keras) for plant disease identification with image analysis
 - **💰 Financial Dashboard:** ROI calculator, market trend analysis, and financial decision support
+- **⚡ Live Market Intelligence:** Multi-source commodity pricing with background refresh, caching, and WebSocket streaming updates
 - **🌍 Community Forum:** Multilingual farmer community with threaded discussions (supports English, Hindi, Spanish, French, German)
 - **💬 AI Chatbot:** Gemini API-powered conversational assistant for instant farming advice
 - **🎨 Modern UI:** Light/dark mode toggle with Material-UI design
@@ -25,9 +26,14 @@ crop-intelligence-app/
 │   ├── crop_predictor.py      # ML-based yield prediction module
 │   ├── disease_detector.py    # AI-powered disease detection
 │   ├── financial_analyzer.py  # ROI and market analysis
+│   ├── market_data_service.py # Indian market costing + multi-source fallbacks
 │   ├── community_forum.py     # Multilingual forum functionality
 │   ├── chatbot.py             # Gemini AI integration
+│   ├── realtime_market_service.py  # Multi-API market data orchestrator
+│   ├── websocket_market_service.py # WebSocket broadcaster for live prices
 │   ├── requirements.txt       # Python dependencies
+│   ├── test_mandi_api.py      # Govt mandi API diagnostics
+│   ├── test_real_apis.py      # Connectivity checks for external feeds
 │   └── .env.example          # Environment variables template
 │
 ├── frontend/                   # React TypeScript web app
@@ -41,6 +47,8 @@ crop-intelligence-app/
 │   │   │   ├── Chatbot.tsx
 │   │   │   ├── Header.tsx
 │   │   │   └── Sidebar.tsx
+│   │   ├── hooks/
+│   │   │   └── useRealTimeMarketData.ts  # WebSocket + HTTP market data hook
 │   │   ├── App.tsx            # Main app with routing
 │   │   └── ...
 │   ├── package.json           # Node.js dependencies
@@ -76,10 +84,13 @@ pip install -r requirements.txt
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env with your MongoDB URI and Gemini API key
+# Edit .env with your MongoDB URI, Gemini key, and market data API keys
 
 # Start Flask server (integrated)
 python app_integrated.py
+
+# (Optional) Start WebSocket broadcaster for live market pushes (port 8765)
+# python -c "from websocket_market_service import websocket_market_service; websocket_market_service.start_websocket_server(host='0.0.0.0', port=8765)"
 ```
 
 The backend will start on `http://localhost:5001`
@@ -116,18 +127,42 @@ If no model is provided, the application will create a sample model for demonstr
 ## 🔧 Configuration
 
 ### Environment Variables
-Create a `.env` file in the backend directory:
 
-```bash
-# MongoDB connection
+Create a `.env` file in the `backend/` directory (see `.env.example` for a template) and populate the keys you need:
+
+| Key | Required | Purpose |
+| --- | --- | --- |
+| `MONGO_URI` | ✅ | MongoDB connection string used by all services |
+| `JWT_SECRET_KEY` | ✅ | Secret for signing auth tokens |
+| `GEMINI_API_KEY` | ✅ | Powers the multilingual AI chatbot |
+| `MULTILINGUAL_GEMINI_MODEL` | ➕ | Override Gemini model (defaults provided) |
+| `ALPHA_VANTAGE_API_KEY` | ✅ | Live commodity quotes (500 free calls/day) |
+| `DATA_GOV_IN_API_KEY` / `GOVT_OPEN_DATA_KEY` | ✅ for Indian mandi data | Government mandi price feed (resilient fallback to cached/Yahoo/Alpha Vantage when offline) |
+| `EXCHANGERATE_API_KEY` | ➕ | USD ↔︎ INR currency conversion (used by diagnostics today) |
+| `QUANDL_API_KEY` | ➕ | Nasdaq Data Link commodity datasets (optional fallback) |
+| `COMMODITIES_API_KEY` | ➕ | Commodities-API.com feed (leave empty if you don’t have a paid plan) |
+| `OPENWEATHER_API_KEY` | ✅ | Weather forecasts and alerts |
+| `ALLOWED_ORIGINS` | ➕ | Comma-separated frontend origins for CORS (defaults cover localhost:3000/3001) |
+
+```env
 MONGO_URI=mongodb://localhost:27017/crop_intelligence
-
-# Google Gemini AI API (optional)
 GEMINI_API_KEY=your_gemini_api_key_here
-
-# Server configuration
-PORT=5001
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
+DATA_GOV_IN_API_KEY=your_data_gov_key
+EXCHANGERATE_API_KEY=optional_exchange_rate_key
+JWT_SECRET_KEY=replace_with_secure_random_value
+FLASK_ENV=development
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
+
+> Never commit the real `.env` file—copy `.env.example`, fill it locally, and keep secrets out of version control.
+
+### Diagnostics & Health Checks
+
+- `python test_real_apis.py` — quick sanity check that your Alpha Vantage / ExchangeRate keys return live data.
+- `python test_mandi_api.py` — verifies the Indian government mandi endpoint; expect a "Resource id doesn't exist" message when the upstream dataset is temporarily unpublished.
+- Watch backend logs for `real_time_price` messages to confirm cache hits/misses and fallback sources.
+- WebSocket smoke test: `wscat -c ws://localhost:8765` (or any WebSocket client) should stream `market_update` payloads every minute.
 
 ## 📋 API Endpoints
 
@@ -138,9 +173,14 @@ PORT=5001
 ### Disease Detection  
 - `POST /api/detect-disease` - Analyze plant disease from image
 
-### Financial Analysis
-- `POST /api/calculate-roi` - Calculate return on investment
-- `GET /api/market-trends` - Get market trend data
+### Financial Analysis & Market Intelligence
+- `POST /api/financial/roi` - Calculate return on investment for a crop/region
+- `GET /api/financial/market-trends` - Rolling trend series with cache-aware refresh
+- `GET /api/financial/real-time-price` - Multi-API live snapshot (Yahoo → Alpha Vantage → World Bank/Data.gov fallbacks)
+- `GET /api/market/commodities` - Enumerate supported commodity IDs and metadata
+- `GET /api/market/price-comparison` - Compare multiple commodities in one call
+- `GET /api/market/trending` - Volatility-based trending list
+- `GET /api/financial/production-costs` - Region-aware production cost breakdown
 
 ### Community Forum
 - `GET /api/forum/posts` - List forum posts
@@ -184,6 +224,12 @@ PORT=5001
 - **Contexts**: Crop recommendations, problem analysis, weather advice
 - **Fallback**: Comprehensive offline knowledge base
 - **History**: Conversation tracking and context awareness
+
+### 6. Live Market Intelligence
+- **Multi-source aggregation**: Tries Yahoo Finance → Alpha Vantage → Indian Govt mandi feed → World Bank/Quandl, with automatic cache-based fallbacks when a source is offline.
+- **Background refresh**: `realtime_market_service` schedules updates every minute, with rate limiting and Mongo-backed caching to stay within free API quotas.
+- **WebSocket streaming**: Optional broadcaster pushes `market_update` frames over `ws://localhost:8765`, backed by the same aggregator.
+- **Resilience**: When `data.gov.in` returns the upstream `"Resource id doesn't exist"` error, the service records the incident, reuses the freshest cache entry, and surfaces the condition in the response metadata.
 
 ## 🛠️ Technology Stack
 

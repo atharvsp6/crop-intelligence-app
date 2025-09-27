@@ -137,7 +137,11 @@ class RealTimeMarketService:
             cached = self.cache_collection.find_one({'key': cache_key})
             
             if cached and datetime.utcnow() - cached['timestamp'] < timedelta(seconds=self.cache_duration):
-                return cached['data']
+                cached_data = dict(cached.get('data', {}))
+                if 'data_source' not in cached_data and cached_data.get('source'):
+                    cached_data['data_source'] = cached_data['source']
+                cached_data.setdefault('data_source', source)
+                return cached_data
         except Exception as e:
             self.logger.error(f"Cache retrieval error: {e}")
         
@@ -207,6 +211,7 @@ class RealTimeMarketService:
                 
                 if data and data.get('price'):
                     data['from_cache'] = False
+                    data.setdefault('data_source', source)
                     data['source'] = source
                     # Cache the successful result
                     self.cache_price(commodity, source, data)
@@ -551,7 +556,8 @@ class RealTimeMarketService:
                             'current_price': price_data['price'],
                             'price_change_24h': price_data.get('change', 0),
                             'price_change_percentage': change_percent,
-                            'data_source': price_data.get('data_source', 'unknown'),
+                            'data_source': price_data.get('data_source') or price_data.get('source', 'unknown'),
+                            'from_cache': price_data.get('from_cache', False),
                             'currency': price_data.get('currency', 'USD'),
                             'last_updated': price_data.get('last_updated', datetime.utcnow().isoformat()),
                             'price_history': price_history,

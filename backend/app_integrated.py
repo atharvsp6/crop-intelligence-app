@@ -812,7 +812,8 @@ def get_price_comparison():
                     'change': price_data.get('change', 0),
                     'change_percent': price_data.get('change_percent', 0),
                     'last_updated': price_data.get('last_updated', ''),
-                    'data_source': price_data.get('data_source', 'unknown'),
+                    'data_source': price_data.get('data_source') or price_data.get('source', 'unknown'),
+                    'from_cache': price_data.get('from_cache', False),
                     'data_freshness': price_data.get('data_freshness', 'unknown')
                 })
         
@@ -848,7 +849,8 @@ def get_trending_commodities():
                         'change_percent': price_data.get('change_percent', 0),
                         'direction': 'up' if price_data.get('change', 0) > 0 else 'down',
                         'last_updated': price_data.get('last_updated', ''),
-                        'data_source': price_data.get('data_source', 'unknown'),
+                        'data_source': price_data.get('data_source') or price_data.get('source', 'unknown'),
+                        'from_cache': price_data.get('from_cache', False),
                         'data_freshness': price_data.get('data_freshness', 'unknown')
                     })
         

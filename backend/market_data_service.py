@@ -144,7 +144,12 @@ class MarketDataService:
     def _fetch_indian_market_price(self, commodity):
         """Fetch price from Indian commodity exchanges and government sources"""
         try:
-            # Try NCDEX first (most reliable for agricultural commodities)
+            # Always try the live Indian government mandi feed first when available
+            govt_price = self._fetch_indian_govt_price(commodity)
+            if govt_price:
+                return govt_price
+
+            # Try NCDEX (simulated) next as a high-quality Indian benchmark
             ncdex_price = self._fetch_ncdex_price(commodity)
             if ncdex_price:
                 return ncdex_price
@@ -154,15 +159,10 @@ class MarketDataService:
             if mcx_price:
                 return mcx_price
             
-            # Try AgMarketNet (Government agricultural prices)
+            # Try AgMarketNet (simulated) as an additional fallback
             agmarket_price = self._fetch_agmarket_price(commodity)
             if agmarket_price:
                 return agmarket_price
-            
-            # Try Indian Government Open Data
-            govt_price = self._fetch_indian_govt_price(commodity)
-            if govt_price:
-                return govt_price
             
             return None
             
@@ -411,37 +411,61 @@ class MarketDataService:
             
             # Get today's date for current prices
             from datetime import date
-            today = date.today().strftime('%Y-%m-%d')
-            
+            today = date.today()
+
             params = {
                 'api-key': api_key,
                 'format': 'json',
                 'filters[commodity]': govt_commodity,
-                'filters[arrival_date]': today,
-                'limit': 10  # Get multiple markets to calculate average
+                'limit': 50  # Fetch multiple recent markets
             }
-            
+
             response = requests.get(url, params=params, timeout=15)
             self.logger.info(f"Government API request: {response.url}")
-            
+
+            data = None
+
             if response.status_code == 200:
                 data = response.json()
-                
-                if 'records' in data and len(data['records']) > 0:
+
+                if data and 'records' in data and len(data['records']) > 0:
                     records = data['records']
+                    
+                    # Sort records locally by arrival date (latest first)
+                    def _arrival_sort_key(record):
+                        arrival_str = record.get('arrival_date')
+                        if arrival_str:
+                            try:
+                                return datetime.strptime(arrival_str, '%d/%m/%Y')
+                            except ValueError:
+                                pass
+                        return datetime.min
+                    
+                    records = sorted(records, key=_arrival_sort_key, reverse=True)
                     
                     # Calculate average price from multiple markets
                     prices = []
                     markets = []
+                    filtered_records = []
                     
                     for record in records:
                         try:
+                            arrival_str = record.get('arrival_date')
+                            if arrival_str:
+                                try:
+                                    arrival_date = datetime.strptime(arrival_str, '%d/%m/%Y').date()
+                                    if (today - arrival_date).days > 7:
+                                        continue
+                                except ValueError:
+                                    pass
+                            
                             # Government data typically has prices in ₹/quintal
                             price_quintal = float(record.get('max_price', 0))
                             if price_quintal > 0:
                                 price_per_kg = price_quintal / 100  # Convert quintal to kg
                                 prices.append(price_per_kg)
                                 markets.append(record.get('market', 'Unknown'))
+                                filtered_records.append(record)
                         except (ValueError, TypeError):
                             continue
                     
@@ -449,7 +473,7 @@ class MarketDataService:
                         avg_price = sum(prices) / len(prices)
                         
                         # Get the latest record for metadata
-                        latest_record = records[0]
+                        latest_record = filtered_records[0] if filtered_records else records[0]
                         
                         return {
                             'price': round(avg_price, 2),

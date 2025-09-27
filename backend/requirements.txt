@@ -14,3 +14,19 @@ bcrypt
 pillow
 shap
 googletrans==4.0.0rc1
+
+# Real-time Market Data Dependencies
+schedule>=1.2.0
+websockets>=15.0.0
+
+# Additional API and Data Processing
+urllib3>=1.26.0
+python-dateutil>=2.8.0
+
+# Data Analysis and Visualization (optional enhancements)
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.0.0
+
+# Security and certificates
+certifi>=2022.0.0

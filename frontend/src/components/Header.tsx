@@ -4,8 +4,6 @@ import {
   Toolbar,
   Typography,
   IconButton,
-  Switch,
-  FormControlLabel,
   Box,
   Avatar,
   Chip,
@@ -14,6 +12,8 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  Tooltip,
+  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -25,6 +25,7 @@ import {
   AccountCircle,
   Logout,
   Settings,
+  AutoAwesome,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,141 +57,148 @@ const Header: React.FC<HeaderProps> = ({
     handleClose();
   };
   return (
-    <AppBar 
-      position="static" 
+    <AppBar
+      position="static"
       elevation={0}
       sx={{
-        background: darkMode 
-          ? 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)'
-          : 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(16px)',
+        boxShadow: 'none',
       }}
     >
-      <Toolbar sx={{ py: 1 }}>
+      <Toolbar
+        sx={{
+          minHeight: 72,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
         <IconButton
           edge="start"
-          color="inherit"
-          aria-label="menu"
+          aria-label="Toggle navigation"
           onClick={onSidebarToggle}
-          sx={{ 
-            mr: 2,
+          sx={{
+            width: 46,
+            height: 46,
+            borderRadius: 14,
+            border: '1px solid rgba(125, 228, 154, 0.25)',
+            backgroundColor: 'rgba(125, 228, 154, 0.12)',
+            color: 'primary.main',
+            transition: 'all 0.25s ease',
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            }
+              transform: 'translateY(-2px)',
+              boxShadow: '0 12px 24px rgba(47, 133, 90, 0.22)',
+            },
           }}
         >
           <MenuIcon />
         </IconButton>
-        
-        {/* Logo and Brand */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: 'rgba(255, 255, 255, 0.15)',
-              mr: 2,
+              width: 44,
+              height: 44,
+              borderRadius: 16,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.35) 0%, rgba(47, 133, 90, 0.45) 100%)',
+              color: '#0f1411',
             }}
           >
-            <Agriculture sx={{ fontSize: 24 }} />
+            <Agriculture fontSize="medium" />
           </Box>
           <Box>
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 fontWeight: 700,
-                fontSize: '1.25rem',
-                lineHeight: 1.2,
+                letterSpacing: '0.02em',
               }}
             >
-              AgroSmart
+              🌾 YieldWise
             </Typography>
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                opacity: 0.8,
-                fontSize: '0.75rem',
-                display: 'block',
-                lineHeight: 1,
-              }}
-            >
-              Intelligent Agriculture Platform
+            <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.08em' }}>
+              SMART AI-POWERED FARMING
             </Typography>
           </Box>
         </Box>
 
-        {/* Status Chip */}
-        <Chip
-          icon={<Nature sx={{ fontSize: 16 }} />}
-          label="Growing Season"
-          size="small"
-          sx={{
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            color: 'white',
-            '& .MuiChip-icon': {
-              color: 'white',
-            },
-            mr: 2,
-          }}
-        />
-        
-        <Box sx={{ flexGrow: 1 }} />
-        
-        {/* Right side controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton
-            color="inherit"
-            sx={{
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
-            }}
-          >
-            <Notifications />
-          </IconButton>
-          
-          <FormControlLabel
-            control={
-              <Switch
-                checked={darkMode}
-                onChange={onThemeToggle}
-                icon={<Brightness7 sx={{ fontSize: 16 }} />}
-                checkedIcon={<Brightness4 sx={{ fontSize: 16 }} />}
-                sx={{
-                  '& .MuiSwitch-switchBase': {
-                    '&:hover': {
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                  },
-                }}
-              />
-            }
-            label=""
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5, ml: 4 }}>
+          <Chip
+            icon={<Nature fontSize="small" />}
+            label="Optimal growing window"
+            className="chip-muted"
+            sx={{ pl: 0.5, pr: 1.5, height: 32 }}
           />
-          
+          <Chip
+            icon={<AutoAwesome fontSize="small" />}
+            label="AI insights refreshed"
+            sx={{
+              borderRadius: '999px',
+              height: 32,
+              backgroundColor: 'rgba(246, 173, 85, 0.16)',
+              color: 'secondary.dark',
+              '& .MuiChip-icon': { color: 'secondary.dark' },
+            }}
+          />
+        </Box>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Tooltip title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <IconButton
+              onClick={onThemeToggle}
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                border: '1px solid rgba(125, 228, 154, 0.24)',
+                color: 'primary.main',
+                backgroundColor: 'rgba(125, 228, 154, 0.12)',
+                '&:hover': {
+                  backgroundColor: 'rgba(125, 228, 154, 0.2)',
+                },
+              }}
+            >
+              {darkMode ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Notifications">
+            <IconButton
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                border: '1px solid rgba(125, 228, 154, 0.16)',
+              }}
+            >
+              <Badge color="secondary" variant="dot">
+                <Notifications />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          {/* Removed Launch Planner Button as requested */}
+
           <Avatar
             onClick={handleClick}
             sx={{
-              width: 32,
-              height: 32,
-              backgroundColor: 'rgba(255, 255, 255, 0.15)',
-              fontSize: '0.875rem',
-              ml: 1,
+              width: 40,
+              height: 40,
+              fontSize: '0.95rem',
+              fontWeight: 600,
               cursor: 'pointer',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.25)',
-              }
+              background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.35) 0%, rgba(47, 133, 90, 0.72) 100%)',
+              color: '#0f1411',
+              border: '1px solid rgba(125, 228, 154, 0.45)',
             }}
           >
             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </Avatar>
-          
+
           <Menu
             anchorEl={anchorEl}
             open={open}
@@ -200,30 +208,37 @@ const Header: React.FC<HeaderProps> = ({
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             sx={{
               '& .MuiPaper-root': {
-                borderRadius: 2,
-                minWidth: 180,
-                boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.15)',
-              }
+                borderRadius: 3,
+                minWidth: 220,
+                border: darkMode ? '1px solid rgba(125, 228, 154, 0.28)' : '1px solid rgba(47, 133, 90, 0.12)',
+                background: darkMode
+                  ? 'linear-gradient(160deg, rgba(22, 29, 26, 0.96) 0%, rgba(22, 29, 26, 0.86) 100%)'
+                  : 'linear-gradient(160deg, rgba(255,255,255,0.96) 0%, rgba(235, 244, 236, 0.94) 100%)',
+                boxShadow: darkMode
+                  ? '0 24px 48px rgba(9, 13, 11, 0.6)'
+                  : '0 22px 44px rgba(47, 133, 90, 0.15)',
+                color: darkMode ? '#e7f5ee' : '#1e2a1f',
+              },
             }}
           >
             <MenuItem>
               <ListItemIcon>
                 <AccountCircle fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary={user?.name || 'User'} />
+              <ListItemText primary={user?.name || 'Grower'} secondary="Profile" />
             </MenuItem>
             <MenuItem>
               <ListItemIcon>
                 <Settings fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Settings" />
+              <ListItemText primary="Workspace Settings" />
             </MenuItem>
-            <Divider />
+            <Divider sx={{ borderColor: 'rgba(125, 228, 154, 0.12)' }} />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <Logout fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Logout" />
+              <ListItemText primary="Sign out" />
             </MenuItem>
           </Menu>
         </Box>

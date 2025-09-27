@@ -1,186 +1,279 @@
-/* CSS Variables for Agriculture Theme */
-:root {
-  --primary-green: #2E7D32;
-  --secondary-green: #4CAF50;
-  --light-green: #66BB6A;
-  --accent-amber: #FF8F00;
-  --light-amber: #FFB74D;
-  --earth-brown: #8D6E63;
-  --soil-dark: #5D4037;
-  --sky-blue: #2196F3;
-  --sun-yellow: #FFC107;
-  --leaf-gradient: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-  --earth-gradient: linear-gradient(135deg, #8D6E63 0%, #A1887F 100%);
-  --sky-gradient: linear-gradient(135deg, #81C784 0%, #A5D6A7 100%);
-}
-
-/* Global Styles */
 * {
   box-sizing: border-box;
+  transition: color 0.25s ease, background-color 0.25s ease, border-color 0.25s ease;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+:root,
+.theme-light {
+  color-scheme: light;
+  --bg-app: #f5f7f3;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: rgba(255, 255, 255, 0.65);
+  --bg-glass: rgba(236, 249, 242, 0.78);
+  --bg-alt: rgba(235, 242, 236, 0.6);
+  --border-soft: rgba(47, 133, 90, 0.12);
+  --border-strong: rgba(47, 133, 90, 0.25);
+  --text-primary: #1e2a1f;
+  --text-secondary: rgba(30, 42, 31, 0.65);
+  --text-muted: rgba(30, 42, 31, 0.45);
+  --accent-primary: #2f855a;
+  --accent-secondary: #f6ad55;
+  --accent-tertiary: #53b25d;
+  --accent-gradient: linear-gradient(135deg, #3aa76d 0%, #7ddf92 100%);
+  --accent-gradient-soft: linear-gradient(165deg, rgba(58, 167, 109, 0.12) 0%, rgba(125, 223, 146, 0.25) 100%);
+  --shadow-soft: 0 20px 40px rgba(57, 96, 69, 0.12);
+}
+
+.theme-dark {
+  color-scheme: dark;
+  --bg-app: #0f1411;
+  --bg-surface: rgba(22, 29, 26, 0.94);
+  --bg-surface-subtle: rgba(17, 23, 20, 0.78);
+  --bg-glass: rgba(18, 26, 22, 0.7);
+  --bg-alt: rgba(20, 28, 24, 0.55);
+  --border-soft: rgba(125, 228, 154, 0.18);
+  --border-strong: rgba(125, 228, 154, 0.35);
+  --text-primary: #e7f5ee;
+  --text-secondary: rgba(231, 245, 238, 0.7);
+  --text-muted: rgba(231, 245, 238, 0.45);
+  --accent-primary: #7ddf92;
+  --accent-secondary: #f6b73c;
+  --accent-tertiary: #74d990;
+  --accent-gradient: linear-gradient(135deg, rgba(125, 223, 146, 0.9) 0%, rgba(91, 194, 127, 0.8) 100%);
+  --accent-gradient-soft: linear-gradient(165deg, rgba(77, 135, 99, 0.22) 0%, rgba(50, 88, 68, 0.45) 90%);
+  --shadow-soft: 0 28px 60px rgba(4, 7, 6, 0.65);
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e8 100%);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
   min-height: 100vh;
+  position: relative;
 }
 
-/* Agriculture-themed background pattern */
 body::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    radial-gradient(circle at 20% 80%, rgba(46, 125, 50, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(76, 175, 80, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(255, 143, 0, 0.03) 0%, transparent 50%);
+  inset: 0;
+  background: radial-gradient(circle at 10% 20%, rgba(125, 223, 146, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(82, 186, 125, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 85%, rgba(225, 204, 153, 0.08) 0%, transparent 40%);
   pointer-events: none;
   z-index: -1;
+  transition: opacity 0.3s ease;
 }
 
-/* Custom scrollbar */
+.theme-dark body::before {
+  background: radial-gradient(circle at 10% 15%, rgba(125, 223, 146, 0.22) 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(53, 94, 71, 0.32) 0%, transparent 50%),
+    radial-gradient(circle at 50% 85%, rgba(53, 94, 71, 0.32) 0%, transparent 55%);
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 9px;
+  height: 9px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(46, 125, 50, 0.1);
-  border-radius: 4px;
+  background: rgba(125, 223, 146, 0.08);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--leaf-gradient);
-  border-radius: 4px;
+  background: var(--accent-gradient);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
+  background: linear-gradient(135deg, rgba(125, 223, 146, 1) 0%, rgba(91, 194, 127, 0.85) 100%);
 }
 
-/* Smooth animations for all elements */
-* {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-/* Focus states for accessibility */
 *:focus-visible {
-  outline: 2px solid var(--primary-green);
-  outline-offset: 2px;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
 }
 
-/* Loading animation for agriculture theme */
-@keyframes grow-plant {
-  0% {
-    transform: translateY(10px) scale(0.8);
-    opacity: 0;
-  }
-  50% {
-    transform: translateY(-2px) scale(1.05);
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
+.glass-card {
+  background: var(--bg-glass);
+  border-radius: 20px;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(12px);
 }
 
-/* Apply grow animation to cards */
-.MuiCard-root {
-  animation: grow-plant 0.6s ease-out;
+.surface-card {
+  background: var(--bg-surface);
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
 }
 
-/* Stagger animations for multiple cards */
-.MuiCard-root:nth-child(1) { animation-delay: 0.1s; }
-.MuiCard-root:nth-child(2) { animation-delay: 0.2s; }
-.MuiCard-root:nth-child(3) { animation-delay: 0.3s; }
-.MuiCard-root:nth-child(4) { animation-delay: 0.4s; }
-.MuiCard-root:nth-child(5) { animation-delay: 0.5s; }
-.MuiCard-root:nth-child(6) { animation-delay: 0.6s; }
-
-/* Typography enhancements */
-h1, h2, h3, h4, h5, h6 {
-  color: var(--primary-green);
-  font-weight: 600;
+.section-title {
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
 }
 
-/* Responsive text scaling */
-@media (max-width: 768px) {
-  body {
-    font-size: 14px;
-  }
-  
-  h1 { font-size: 1.8rem; }
-  h2 { font-size: 1.5rem; }
-  h3 { font-size: 1.3rem; }
-  h4 { font-size: 1.1rem; }
+.chip-muted {
+  background-color: rgba(125, 223, 146, 0.12) !important;
+  color: var(--accent-primary) !important;
+  border-radius: 999px !important;
+  font-weight: 600 !important;
 }
 
-/* Button hover effects */
-.MuiButton-root {
-  position: relative;
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.4rem;
+  border-radius: 18px;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-soft);
+}
+
+.stat-card__label {
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.stat-card__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.feed-card {
+  border-radius: 20px;
+  padding: 1.4rem;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.feed-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 65px rgba(23, 46, 33, 0.18);
+}
+
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-surface);
+  border-radius: 24px;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
   overflow: hidden;
 }
 
-.MuiButton-root::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.6s ease;
+.chat-stream {
+  flex: 1;
+  padding: 1.6rem;
+  overflow-y: auto;
+  background: radial-gradient(circle at top, rgba(125, 223, 146, 0.08) 0%, transparent 55%);
 }
 
-.MuiButton-root:hover::before {
-  left: 100%;
+.chat-bubble {
+  padding: 1rem 1.25rem;
+  border-radius: 18px;
+  line-height: 1.6;
+  max-width: min(560px, 80%);
+  box-shadow: 0 12px 25px rgba(21, 33, 27, 0.12);
+  position: relative;
 }
 
-/* Progress bar styling */
-.MuiLinearProgress-root {
-  background: var(--leaf-gradient);
-  border-radius: 8px;
+.chat-bubble.user {
+  background: var(--accent-gradient);
+  color: #0f1411;
+  border-top-right-radius: 6px;
+  margin-left: auto;
 }
 
-/* Custom agriculture gradients for components */
-.agriculture-gradient {
-  background: var(--leaf-gradient);
+.chat-bubble.bot {
+  background: var(--bg-surface-subtle);
+  border-top-left-radius: 6px;
+  border: 1px solid var(--border-soft);
+  color: var(--text-primary);
 }
 
-.earth-gradient {
-  background: var(--earth-gradient);
+.layout-grid {
+  display: grid;
+  gap: 1.6rem;
 }
 
-.sky-gradient {
-  background: var(--sky-gradient);
+.layout-grid.three {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-/* Mobile responsiveness */
-@media (max-width: 600px) {
-  .MuiContainer-root {
-    padding-left: 16px;
-    padding-right: 16px;
+.layout-grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.forum-badge {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  background: rgba(125, 223, 146, 0.16);
+  color: var(--accent-primary);
+}
+
+.forum-chip-weather {
+  background: rgba(100, 181, 246, 0.25);
+  color: #1e88e5;
+}
+
+.forum-chip-general {
+  background: rgba(153, 128, 250, 0.22);
+  color: #5b4baf;
+}
+
+@media (max-width: 900px) {
+  .chat-bubble {
+    max-width: 90%;
   }
-  
-  .MuiToolbar-root {
-    min-height: 56px;
-    padding-left: 12px;
-    padding-right: 12px;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  .layout-grid.three {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .layout-grid.two {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
 
-/* Print styles */
 @media print {
   body::before {
     display: none;
   }
-  
   .MuiAppBar-root {
     display: none;
   }

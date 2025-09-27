@@ -20,7 +20,6 @@ import {
   Email,
   Person,
   Lock,
-  Agriculture,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -78,7 +77,39 @@ const AuthPage: React.FC = () => {
   const location = useLocation();
 
   // Get the intended destination, or default to dashboard
-  const from = location.state?.from?.pathname || '/';
+  const from = location.state?.from?.pathname || '/dashboard';
+
+  const textFieldSx = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 3,
+      backgroundColor: '#fafafa',
+      '& fieldset': {
+        borderColor: 'rgba(47, 133, 90, 0.2)',
+      },
+      '&:hover fieldset': {
+        borderColor: 'rgba(47, 133, 90, 0.4)',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#2f855a',
+        borderWidth: 2,
+      },
+      '& .MuiOutlinedInput-input': {
+        color: '#333333',
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: '#666666',
+      '&.Mui-focused': {
+        color: '#2f855a',
+      },
+      '&.MuiFormLabel-filled': {
+        color: '#2f855a',
+      },
+    },
+    '& .MuiFormHelperText-root': {
+      color: '#666666',
+    },
+  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -162,7 +193,7 @@ const AuthPage: React.FC = () => {
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 50%, #66BB6A 100%)',
+        background: 'linear-gradient(135deg, #0f1411 0%, #1a2420 50%, #2f855a 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -175,36 +206,61 @@ const AuthPage: React.FC = () => {
       }}
     >
       <Paper
-        elevation={12}
+        elevation={20}
         sx={{
           width: '100%',
-          maxWidth: 450,
-          borderRadius: 3,
-          background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+          maxWidth: 480,
+          borderRadius: 4,
+          background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
           overflow: 'hidden',
           margin: 'auto',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(125, 228, 154, 0.1)',
         }}
       >
         {/* Header */}
         <Box
           sx={{
-            background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+            background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
             color: 'white',
-            padding: 3,
+            padding: 4,
             textAlign: 'center',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 30% 30%, rgba(125, 228, 154, 0.15) 0%, transparent 50%)',
+            }
           }}
         >
-          <Agriculture sx={{ fontSize: 48, mb: 1 }} />
-          <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-            CropIntel
-          </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.9 }}>
-            Smart Agriculture Management Platform
-          </Typography>
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
+            <Box 
+              sx={{ 
+                fontSize: '3rem', 
+                mb: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+              }}
+            >
+              🌾
+            </Box>
+            <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1, fontSize: '2.2rem' }}>
+              YieldWise
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: '1.1rem' }}>
+              Smart AI-Powered Farming for Better Yields
+            </Typography>
+          </Box>
         </Box>
 
         {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'rgba(47, 133, 90, 0.2)' }}>
           <Tabs
             value={activeTab}
             onChange={handleTabChange}
@@ -213,11 +269,20 @@ const AuthPage: React.FC = () => {
               '& .MuiTab-root': {
                 fontWeight: 600,
                 fontSize: '1rem',
+                color: '#666666',
+                '&.Mui-selected': {
+                  color: '#2f855a',
+                },
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#2f855a',
+                height: 3,
+                borderRadius: '3px 3px 0 0',
               }
             }}
           >
-            <Tab label="Sign In" />
-            <Tab label="Sign Up" />
+            <Tab label="SIGN IN" />
+            <Tab label="SIGN UP" />
           </Tabs>
         </Box>
 
@@ -248,15 +313,11 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Email color="primary" />
+                      <Email sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <TextField
                 fullWidth
@@ -269,7 +330,7 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock color="primary" />
+                      <Lock sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -277,17 +338,14 @@ const AuthPage: React.FC = () => {
                       <IconButton
                         onClick={handleClickShowPassword}
                         edge="end"
+                        sx={{ color: '#666666' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <Button
                 type="submit"
@@ -296,12 +354,22 @@ const AuthPage: React.FC = () => {
                 size="large"
                 disabled={loading}
                 sx={{
-                  borderRadius: 2,
-                  height: 48,
-                  background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+                  borderRadius: 3,
+                  height: 56,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
+                  boxShadow: '0 8px 32px rgba(47, 133, 90, 0.3)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)',
-                  }
+                    background: 'linear-gradient(135deg, #276749 0%, #1e4d33 100%)',
+                    boxShadow: '0 12px 40px rgba(47, 133, 90, 0.4)',
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(47, 133, 90, 0.6)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
@@ -324,15 +392,11 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Person color="primary" />
+                      <Person sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <TextField
                 fullWidth
@@ -345,15 +409,11 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Email color="primary" />
+                      <Email sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <TextField
                 fullWidth
@@ -366,7 +426,7 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock color="primary" />
+                      <Lock sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -374,17 +434,14 @@ const AuthPage: React.FC = () => {
                       <IconButton
                         onClick={handleClickShowPassword}
                         edge="end"
+                        sx={{ color: '#666666' }}
                       >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <TextField
                 fullWidth
@@ -397,15 +454,11 @@ const AuthPage: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock color="primary" />
+                      <Lock sx={{ color: '#2f855a' }} />
                     </InputAdornment>
                   ),
                 }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={textFieldSx}
               />
               <Button
                 type="submit"
@@ -414,12 +467,22 @@ const AuthPage: React.FC = () => {
                 size="large"
                 disabled={loading}
                 sx={{
-                  borderRadius: 2,
-                  height: 48,
-                  background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
+                  borderRadius: 3,
+                  height: 56,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
+                  boxShadow: '0 8px 32px rgba(47, 133, 90, 0.3)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)',
-                  }
+                    background: 'linear-gradient(135deg, #276749 0%, #1e4d33 100%)',
+                    boxShadow: '0 12px 40px rgba(47, 133, 90, 0.4)',
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(47, 133, 90, 0.6)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}

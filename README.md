@@ -46,8 +46,8 @@ crop-intelligence-app/
 │   ├── package.json           # Node.js dependencies
 │   └── ...
 │
-├── model/                      # AI/ML models
-│   └── plant_disease_model.h5 # TensorFlow disease detection model
+├── model/                      # Model artifacts (drop `plant_disease_model.h5` here when enabled)
+│   └── README.md              # Instructions for supplying the disease model
 │
 ├── .gitignore                 # Git ignore rules
 └── README.md                  # This file

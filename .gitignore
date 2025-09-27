@@ -33,10 +33,14 @@ env.bak/
 venv.bak/
 
 # ML Models
+# Ignore all model artifacts except the active colab_rf_model.* we want tracked for reproducibility.
 *.h5
 *.joblib
 *.pkl
 *.pickle
+!backend/colab_rf_model.joblib
+!backend/colab_rf_model_meta.json
+
 
 # IDE
 .vscode/

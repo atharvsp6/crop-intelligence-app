@@ -18,6 +18,7 @@ from auth import UserManager
 from weather_service import WeatherService
 from dashboard_service import DashboardService
 from chatbot import crop_chatbot
+from realtime_market_service import realtime_market_service
 multilingual_import_error = None
 try:
     from multilingual_chatbot import MultilingualAgriChatbot, create_chatbot_routes as _create_ml_routes
@@ -26,11 +27,21 @@ except Exception as _ie:
     _create_ml_routes = None
     multilingual_import_error = str(_ie)
     print(f"[Multilingual Import] Failed to import multilingual_chatbot module: {_ie}")
-from crop_predictor import crop_predictor
-from crop_predictor import generate_shap_explanation
+from colab_style_predictor import colab_style_model
 from disease_detector import disease_detector
-from financial_analyzer import financial_analyzer
-from market_data_service import market_data_service
+
+# Initialize financial services and market data
+try:
+    from financial_analyzer import financial_analyzer
+    from market_data_service import MarketDataService
+    market_data_service = MarketDataService()
+    FINANCIAL_SERVICES_AVAILABLE = True
+    print("Financial and market data services enabled successfully")
+except Exception as e:
+    print(f"Financial services disabled: {e}")
+    financial_analyzer = None
+    market_data_service = None
+    FINANCIAL_SERVICES_AVAILABLE = False
 from community_forum import community_forum
 
 # Initialize Flask app
@@ -38,10 +49,23 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-here')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
 
+# Determine allowed origins in a flexible way that supports multiple dev ports
+default_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+custom_origins = os.environ.get("ALLOWED_ORIGINS")
+if custom_origins:
+    allowed_origins = [origin.strip() for origin in custom_origins.split(",") if origin.strip()]
+else:
+    allowed_origins = default_origins
+
 # Initialize extensions with explicit CORS policy for all API routes
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:3000"],
+        "origins": allowed_origins,
         "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True
@@ -191,18 +215,35 @@ def update_profile():
 # =============================================================================
 
 @app.route('/api/dashboard/stats', methods=['GET'])
-@jwt_required()
+@jwt_required(optional=True)
 def get_dashboard_stats():
     try:
         user_id = get_jwt_identity()
-        global_stats = request.args.get('global', 'false').lower() == 'true'
-        
-        if global_stats:
-            stats = dashboard_service.get_dashboard_stats()
-        else:
-            stats = dashboard_service.get_dashboard_stats(user_id)
-            
+        from enhanced_dashboard_service import dashboard_service as enhanced_service
+        stats = enhanced_service.get_real_time_stats(user_id)
         return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dashboard/yield-trends', methods=['GET'])
+@jwt_required(optional=True)
+def get_yield_trends():
+    try:
+        user_id = get_jwt_identity()
+        from enhanced_dashboard_service import dashboard_service as enhanced_service
+        trends = enhanced_service.get_yield_trends(user_id)
+        return jsonify(trends)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/dashboard/soil-health', methods=['GET'])
+@jwt_required(optional=True)
+def get_soil_health():
+    try:
+        user_id = get_jwt_identity()
+        from enhanced_dashboard_service import dashboard_service as enhanced_service
+        signals = enhanced_service.get_soil_health_signals(user_id)
+        return jsonify(signals)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -467,7 +508,7 @@ if multilingual_chatbot and _create_ml_routes:
                         'fertilizer_input': float(data.get('fertilizer_input', 50000)),
                         'pesticide_input': float(data.get('pesticide_input', 1000))
                     }
-                    prediction = crop_predictor.predict_yield(pred_payload)
+                    prediction = colab_style_model.predict(_map_frontend_to_colab(pred_payload))
             except Exception as _pe:
                 prediction = {'success': False, 'error': f'Prediction error: {_pe}'}
             advice_query = f"I am growing {crop} in {state}. Provide practical advice to improve yield." if crop else data.get('query','Agricultural advice please')
@@ -496,154 +537,165 @@ def mchatbot_status():
         'model_name': getattr(getattr(multilingual_chatbot, 'model', None), 'model_name', None)
     })
 
-# =============================================================================
-# MODEL INFO ENDPOINTS
-# =============================================================================
-@app.route('/api/model-info/yield', methods=['GET'])
-def model_info_yield():
-    try:
-        crop_predictor.load_model()
-        meta = getattr(crop_predictor, 'model_meta', None)
-        if not meta:
-            return jsonify({'success': False, 'error': 'No metadata available'}), 404
-        return jsonify({'success': True, 'meta': meta})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+# Removed earlier duplicate model-info endpoint (consolidated later)
 
 @app.route('/api/predict-yield/explain', methods=['POST'])
 def explain_yield_prediction():
-    """Return SHAP explanation for a prediction.
+    """Return SHAP explanation for a prediction - DISABLED.
 
-    Accepts same payload as /api/predict-yield. Does not require auth for now but could be protected.
+    This feature is currently disabled as the new crop predictor doesn't include SHAP.
     """
-    try:
-        data = request.get_json() or {}
-        if not data.get('crop_type'):
-            data['crop_type'] = 'wheat'
-        result = generate_shap_explanation(crop_predictor, data)
-        return jsonify(result), (200 if result.get('success') else 400)
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    return jsonify({'success': False, 'error': 'SHAP explanation not available in current model'}), 400
+    # try:
+    #     data = request.get_json() or {}
+    #     if not data.get('crop_type'):
+    #         data['crop_type'] = 'wheat'
+    #     return jsonify(result), (200 if result.get('success') else 400)
+    # except Exception as e:
+    #     return jsonify({'success': False, 'error': str(e)}), 500
 
 # =============================================================================
 # EXISTING ROUTES (UPDATED WITH AUTH)
 # =============================================================================
 
 @app.route('/api/predict-crop', methods=['POST'])
-@jwt_required()
 def predict_crop_yield():
-    try:
-        if request.method == 'OPTIONS':
-            return ('', 204)
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        # Support legacy or extended schema
-        legacy_required = ['temperature','humidity','ph','rainfall']
-        extended_required = ['season','state','annual_rainfall','fertilizer_input','pesticide_input','area']
-        has_legacy = all(f in data for f in legacy_required)
-        has_extended = all(f in data for f in extended_required)
-        if not (has_legacy or has_extended):
-            return jsonify({'error': 'Provide legacy (temperature, humidity, ph, rainfall + nutrients) or extended (season, state, annual_rainfall, fertilizer_input, pesticide_input, area).'}), 400
-        data.setdefault('crop_type','wheat')
-        if has_legacy:
-            data.setdefault('nitrogen',50)
-            data.setdefault('phosphorus',50)
-            data.setdefault('potassium',50)
-        if has_extended:
-            data.setdefault('area',0)
-            data.setdefault('annual_rainfall',0)
-            data.setdefault('fertilizer_input',0)
-            data.setdefault('pesticide_input',0)
-        prediction = crop_predictor.predict_yield(data)
-        
-        # Update user activity
-        user_manager.update_user_activity(user_id, 'crop_prediction')
-        
-        return jsonify(prediction)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """Predict crop yield using Colab-style model (accepts frontend keys)."""
+    data = request.get_json() or {}
+    payload = _map_frontend_to_colab(data)
+    result = colab_style_model.predict(payload)
+    return jsonify(result)
 
-# Backward compatibility alias used by older frontend code
-@app.route('/api/predict-yield', methods=['POST', 'OPTIONS'])
-def predict_crop_yield_alias():
-    """Alias for /api/predict-crop.
-    If request has Authorization header and token is valid we let the
-    original jwt_required function process; otherwise we allow a limited
-    prediction (no user activity tracking)."""
+# Backward compatibility alias and public endpoint
+@app.route('/api/predict-yield', methods=['POST','OPTIONS'])
+def predict_crop_yield_public():
     if request.method == 'OPTIONS':
-        return ('', 204)
-    auth_header = request.headers.get('Authorization')
-    if auth_header:
-        # Let the protected route logic handle it by internally calling the function
-        try:
-            # Manually invoke the protected function via a nested call with context
-            return predict_crop_yield()
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    # No auth provided: perform minimal validation & prediction without user context
-    try:
-        data = request.get_json() or {}
-        legacy_required = ['temperature','humidity','ph','rainfall']
-        extended_required = ['season','state','annual_rainfall','fertilizer_input','pesticide_input','area']
-        has_legacy = all(f in data for f in legacy_required)
-        has_extended = all(f in data for f in extended_required)
-        if not (has_legacy or has_extended):
-            return jsonify({'error': 'Missing required legacy or extended fields'}), 400
-        data.setdefault('crop_type','wheat')
-        if has_legacy:
-            data.setdefault('nitrogen',50)
-            data.setdefault('phosphorus',50)
-            data.setdefault('potassium',50)
-        if has_extended:
-            data.setdefault('area',0)
-            data.setdefault('annual_rainfall',0)
-            data.setdefault('fertilizer_input',0)
-            data.setdefault('pesticide_input',0)
-        prediction = crop_predictor.predict_yield(data)
-        prediction['auth'] = 'anonymous'
-        prediction['note'] = 'Run with limited mode (no JWT provided)'
-        return jsonify(prediction)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return ('',204)
+    data = request.get_json() or {}
+    payload = _map_frontend_to_colab(data)
+    return jsonify(colab_style_model.predict(payload))
+
+# Training endpoint for the new model
+@app.route('/api/train-model', methods=['POST'])
+def train_colab_model():
+    cap_param = (request.args.get('cap_target','').lower())
+    if cap_param in ('false','0','no'):
+        colab_style_model.CAP_TARGET = False
+    elif cap_param in ('true','1','yes'):
+        colab_style_model.CAP_TARGET = True
+    ok = colab_style_model.train()
+    meta = colab_style_model.get_meta()
+    return jsonify({'success': ok, 'meta': meta, 'cap_target': colab_style_model.CAP_TARGET})
+
+# -----------------------------------------------------------------------------
+# Colab-style model endpoints (exact pipeline mirror) - prefixed to avoid clash
+# -----------------------------------------------------------------------------
+# Keep backward compatibility raw endpoints if someone wants to send notebook-native keys
+@app.route('/api/colab/predict', methods=['POST'])
+def colab_predict_raw():
+    data = request.get_json() or {}
+    return jsonify(colab_style_model.predict(data))
+
+@app.route('/api/colab/train', methods=['POST'])
+def colab_train_raw():
+    ok = colab_style_model.train()
+    return jsonify({'success': ok})
+
+@app.route('/api/model-info/yield', methods=['GET'])
+def model_info_yield():
+    return jsonify({'success': True, 'meta': colab_style_model.get_meta()})
+
+@app.route('/api/model-info/yield/debug-aligned', methods=['POST'])
+def model_info_yield_aligned():
+    data = request.get_json() or {}
+    if 'Crop' not in data and 'crop_type' in data:
+        data = _map_frontend_to_colab(data)
+    return jsonify(colab_style_model.debug_aligned_features(data))
+
+def _map_frontend_to_colab(d: dict) -> dict:
+    mapping = {
+        'crop_type': 'Crop',
+        'state': 'State Name',
+        'season': 'Season',
+        'year': 'Year',
+        'area': 'Area',
+        'annual_rainfall': 'Annual_Rainfall',
+        'fertilizer': 'Fertilizer',
+        'pesticide': 'Pesticide',
+        'temperature': 'Temperature_C',
+        'humidity': 'Humidity_%',
+        'ph': 'pH',
+        'rainfall': 'Rainfall_mm',
+        'nitrogen': 'N_req_kg_per_ha',
+        'phosphorus': 'P_req_kg_per_ha',
+        'potassium': 'K_req_kg_per_ha',
+        'wind_speed': 'Wind_Speed_m_s',
+        'solar_radiation': 'Solar_Radiation_MJ_m2_day'
+    }
+    out = {}
+    for fk, bk in mapping.items():
+        if fk in d:
+            out[bk] = d[fk]
+    # Provide defaults mirroring earlier behavior if fields are missing
+    defaults = {
+        'Crop': 'rice',
+        'State Name': 'andhra pradesh',
+        'Season': 'kharif',
+        'Year': 2024,
+        'Area': 1000.0,
+        'Annual_Rainfall': 1200.0,
+        'Fertilizer': 5000000.0,
+        'Pesticide': 10000.0,
+        'Temperature_C': 25.0,
+        'Humidity_%': 70.0,
+        'pH': 6.5,
+        'Rainfall_mm': 1000.0,
+        'N_req_kg_per_ha': 80.0,
+        'P_req_kg_per_ha': 40.0,
+        'K_req_kg_per_ha': 60.0,
+        'Wind_Speed_m_s': 3.0,
+        'Solar_Radiation_MJ_m2_day': 18.0
+    }
+    for k,v in defaults.items():
+        out.setdefault(k,v)
+    return out
+
+# =============================================================================
+# MODEL INFO ENDPOINTS
+# =============================================================================
+# (legacy stray block removed during integration cleanup)
 
 @app.route('/api/detect-disease', methods=['POST'])
 @jwt_required()
 def detect_plant_disease():
-    """Disease detection endpoint.
-
-    Accepts either:
-      - multipart/form-data with file field 'image'
-      - application/json with { "image": "data:<...>base64" }
-    Returns structured prediction or rejection if not plant.
-    """
+    """Disease detection endpoint - Enhanced AI model for plant disease classification."""
     try:
         user_id = get_jwt_identity()
-
         image_data = None
+        
         if 'image' in request.files:
             image_data = request.files['image'].read()
         else:
             data = request.get_json(silent=True) or {}
             image_data = data.get('image')
-
+        
         if not image_data:
             return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
-
+        
         detection = disease_detector.predict_disease(image_data)
-
-        # Update user activity only on successful plant image
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')
-
+        
         status_code = 200 if detection.get('success') else 400
         return jsonify(detection), status_code
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Disease detection failed: {str(e)}'}), 500
 
 @app.route('/api/financial/roi', methods=['POST'])
 @jwt_required()
 def calculate_return_on_investment():
+    if not FINANCIAL_SERVICES_AVAILABLE:
+        return jsonify({'error': 'Financial services temporarily disabled'}), 503
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
@@ -678,7 +730,8 @@ def get_market_trends():
         crop_type = request.args.get('crop_type')
         days = request.args.get('days', 30, type=int)
         
-        trends = financial_analyzer.get_market_trends(crop_type=crop_type, days=days)
+        # Use the new real-time market service instead of financial analyzer
+        trends = realtime_market_service.get_market_trends(commodity=crop_type, days=days)
         
         # Update user activity
         user_manager.update_user_activity(user_id, 'financial_analysis')
@@ -690,16 +743,17 @@ def get_market_trends():
 @app.route('/api/financial/real-time-price', methods=['GET'])
 @jwt_required()
 def get_real_time_price():
-    """Get real-time commodity price"""
+    """Get real-time commodity price using new real-time service"""
     try:
         user_id = get_jwt_identity()
         commodity = request.args.get('commodity')
-        region = request.args.get('region', 'IN')  # Default to Indian market
+        region = request.args.get('region', 'US')  # Default to US market
         
         if not commodity:
             return jsonify({'error': 'Commodity parameter is required'}), 400
         
-        price_data = market_data_service.get_real_time_price(commodity, region)
+        # Use the new real-time market service
+        price_data = realtime_market_service.get_real_time_price_multi_source(commodity, region)
         
         if price_data:
             # Update user activity
@@ -708,6 +762,103 @@ def get_real_time_price():
         else:
             return jsonify({'error': 'Price data unavailable', 'success': False}), 404
             
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market/commodities', methods=['GET'])
+@jwt_required()
+def get_supported_commodities():
+    """Get list of supported commodities for market data"""
+    try:
+        commodities = [
+            {'id': 'wheat', 'name': 'Wheat', 'category': 'Grain', 'unit': 'kg'},
+            {'id': 'rice', 'name': 'Rice', 'category': 'Grain', 'unit': 'kg'},
+            {'id': 'corn', 'name': 'Corn/Maize', 'category': 'Grain', 'unit': 'kg'},
+            {'id': 'soybean', 'name': 'Soybean', 'category': 'Oilseed', 'unit': 'kg'},
+            {'id': 'cotton', 'name': 'Cotton', 'category': 'Fiber', 'unit': 'kg'},
+            {'id': 'turmeric', 'name': 'Turmeric', 'category': 'Spice', 'unit': 'kg'},
+            {'id': 'mustard', 'name': 'Mustard Seed', 'category': 'Oilseed', 'unit': 'kg'},
+            {'id': 'cardamom', 'name': 'Cardamom', 'category': 'Spice', 'unit': 'kg'},
+            {'id': 'coriander', 'name': 'Coriander', 'category': 'Spice', 'unit': 'kg'},
+            {'id': 'onion', 'name': 'Onion', 'category': 'Vegetable', 'unit': 'kg'},
+            {'id': 'tomato', 'name': 'Tomato', 'category': 'Vegetable', 'unit': 'kg'},
+            {'id': 'potato', 'name': 'Potato', 'category': 'Vegetable', 'unit': 'kg'},
+        ]
+        return jsonify({'success': True, 'commodities': commodities})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market/price-comparison', methods=['GET'])
+@jwt_required()
+def get_price_comparison():
+    """Compare prices across different commodities using real-time service"""
+    try:
+        user_id = get_jwt_identity()
+        commodities = request.args.getlist('commodities')
+        region = request.args.get('region', 'US')
+        
+        if not commodities:
+            # Default commodities for comparison
+            commodities = ['wheat', 'rice', 'corn', 'soybean']
+        
+        comparison_data = []
+        for commodity in commodities:
+            price_data = realtime_market_service.get_real_time_price_multi_source(commodity, region)
+            if price_data:
+                comparison_data.append({
+                    'commodity': commodity,
+                    'price': price_data.get('price', 0),
+                    'currency': price_data.get('currency', 'USD'),
+                    'change': price_data.get('change', 0),
+                    'change_percent': price_data.get('change_percent', 0),
+                    'last_updated': price_data.get('last_updated', ''),
+                    'data_source': price_data.get('data_source', 'unknown'),
+                    'data_freshness': price_data.get('data_freshness', 'unknown')
+                })
+        
+        # Update user activity
+        user_manager.update_user_activity(user_id, 'market_data')
+        
+        return jsonify({'success': True, 'data': comparison_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market/trending', methods=['GET'])
+@jwt_required()
+def get_trending_commodities():
+    """Get trending commodities with high price volatility using real-time service"""
+    try:
+        user_id = get_jwt_identity()
+        region = request.args.get('region', 'US')
+        
+        # Key commodities to check for trending
+        key_commodities = ['wheat', 'rice', 'soybean', 'cotton', 'corn', 'sugar']
+        trending_data = []
+        
+        for commodity in key_commodities:
+            price_data = realtime_market_service.get_real_time_price_multi_source(commodity, region)
+            if price_data:
+                change_percent = abs(price_data.get('change_percent', 0))
+                if change_percent > 0.5:  # Show commodities with >0.5% change
+                    trending_data.append({
+                        'commodity': commodity,
+                        'price': price_data.get('price', 0),
+                        'currency': price_data.get('currency', 'USD'),
+                        'change': price_data.get('change', 0),
+                        'change_percent': price_data.get('change_percent', 0),
+                        'direction': 'up' if price_data.get('change', 0) > 0 else 'down',
+                        'last_updated': price_data.get('last_updated', ''),
+                        'data_source': price_data.get('data_source', 'unknown'),
+                        'data_freshness': price_data.get('data_freshness', 'unknown')
+                    })
+        
+        # Sort by absolute change percentage (most volatile first)
+        trending_data.sort(key=lambda x: abs(x['change_percent']), reverse=True)
+        
+        # Update user activity
+        user_manager.update_user_activity(user_id, 'market_data')
+        return jsonify({'success': True, 'trending': trending_data[:10]})  # Top 10
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

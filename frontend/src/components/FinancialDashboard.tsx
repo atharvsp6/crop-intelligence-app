@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -101,15 +101,11 @@ const FinancialDashboard: React.FC = () => {
 
   const cropTypes = ['wheat', 'rice', 'corn', 'soybean', 'cotton'];
 
-  useEffect(() => {
-    fetchMarketTrends();
-  }, []);
-
-  const fetchMarketTrends = async () => {
+  const fetchMarketTrends = useCallback(async () => {
     setMarketLoading(true);
     try {
-  const response = await axios.get<MarketTrend>(`${API_BASE}/api/financial/market-trends?days=30`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await axios.get<MarketTrend>(`${API_BASE}/api/financial/market-trends?days=30`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setMarketTrends(response.data);
     } catch (error) {
@@ -120,7 +116,11 @@ const FinancialDashboard: React.FC = () => {
     } finally {
       setMarketLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchMarketTrends();
+  }, [fetchMarketTrends]);
 
   const calculateROI = async () => {
     setLoading(true);

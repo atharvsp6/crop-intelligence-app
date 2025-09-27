@@ -30,6 +30,9 @@ class DiseaseDetector:
         
     def create_sample_model(self):
         """Create a sample disease detection model if none exists"""
+        print("⚠️  No trained model found. Using basic fallback model.")
+        print("💡 Run 'python download_plant_model.py' to get an enhanced model.")
+        
         try:
             # Create a simple CNN model for demonstration
             model = keras.Sequential([
@@ -51,20 +54,35 @@ class DiseaseDetector:
                 metrics=['accuracy']
             )
             
-            # Create dummy training data for the model
-            dummy_x = np.random.random((100, 224, 224, 3))
+            # Create more diverse dummy training data
+            dummy_x = np.random.random((200, 224, 224, 3))
+            # Add some structure to make predictions more varied
+            for i in range(200):
+                # Add different patterns based on intended class
+                class_idx = i % len(self.class_names)
+                if 'healthy' in self.class_names[class_idx]:
+                    # Healthy plants - more green, less noise
+                    dummy_x[i, :, :, 1] += 0.3  # More green
+                else:
+                    # Diseased plants - more brown/yellow, more noise
+                    dummy_x[i, :, :, 0] += 0.2  # More red
+                    dummy_x[i, :, :, 2] += 0.1  # Less blue
+                    dummy_x[i] += np.random.normal(0, 0.1, (224, 224, 3))
+            
+            dummy_x = np.clip(dummy_x, 0, 1)  # Keep values in valid range
             dummy_y = keras.utils.to_categorical(
-                np.random.randint(0, len(self.class_names), 100), 
+                np.random.randint(0, len(self.class_names), 200), 
                 len(self.class_names)
             )
             
-            # Train briefly to initialize weights
-            model.fit(dummy_x, dummy_y, epochs=1, verbose=0)
+            # Train with more epochs for better diversity
+            model.fit(dummy_x, dummy_y, epochs=3, verbose=0)
             
             # Save the model
             os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
             model.save(self.model_path)
             
+            print("✅ Basic fallback model created successfully")
             return True
         except Exception as e:
             print(f"Error creating sample model: {e}")

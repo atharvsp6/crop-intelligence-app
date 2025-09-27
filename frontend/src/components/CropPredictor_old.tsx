@@ -1,0 +1,1 @@
+// (disabled) Legacy component removed. Empty stub. Safe to delete.

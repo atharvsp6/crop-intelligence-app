@@ -864,6 +864,41 @@ def get_trending_commodities():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/market/mandi-data', methods=['GET'])
+@jwt_required()
+def get_mandi_market_data():
+    """Return detailed mandi price records from the Indian government API."""
+    try:
+        if not market_data_service:
+            return jsonify({
+                'success': False,
+                'error': 'Market data service unavailable'
+            }), 503
+
+        user_id = get_jwt_identity()
+        commodity = request.args.get('commodity')
+        state = request.args.get('state')
+        district = request.args.get('district')
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+
+        response = market_data_service.get_mandi_data(
+            commodity=commodity,
+            state=state,
+            district=district,
+            limit=limit,
+            offset=offset
+        )
+
+        # Track usage regardless of fallback so we know farmers checked mandi prices
+        user_manager.update_user_activity(user_id, 'market_data')
+
+        status_code = 200 if response.get('success', True) or response.get('fallback') else 502
+        return jsonify(response), status_code
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/financial/production-costs', methods=['GET'])
 @jwt_required()
 def get_production_costs():

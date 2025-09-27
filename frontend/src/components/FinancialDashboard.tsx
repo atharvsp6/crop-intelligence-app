@@ -64,7 +64,10 @@ interface MarketTrend {
     current_price: number;
     price_change_24h?: number;
     price_change_percentage?: number;
-    data_source: string;
+    data_source?: string;
+    source?: string;
+    data_freshness?: string;
+    from_cache?: boolean;
     volatility?: number;
     support_level?: number;
     resistance_level?: number;
@@ -85,6 +88,40 @@ interface MarketTrend {
   data_freshness?: string;
   error?: string;
 }
+
+const DATA_SOURCE_LABELS: Record<string, string> = {
+  yahoo_finance: 'Yahoo Finance',
+  alpha_vantage: 'Alpha Vantage',
+  data_gov_in: 'data.gov.in – Mandi Feed',
+  commodities_api: 'Commodities-API',
+  world_bank: 'World Bank Open Data',
+  mock_realtime: 'Simulated (configure API keys)',
+};
+
+const DATA_FRESHNESS_LABELS: Record<string, string> = {
+  real_time: 'Real-time',
+  intraday: 'Intraday',
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  simulated: 'Simulated',
+  cached: 'Cached',
+  unknown: 'Unknown',
+};
+
+const formatLabel = (value?: string, dictionary?: Record<string, string>) => {
+  if (!value) return 'Unknown';
+  const normalized = value.toLowerCase();
+  if (dictionary && dictionary[normalized]) {
+    return dictionary[normalized];
+  }
+  return value
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatDataSourceLabel = (source?: string) => formatLabel(source, DATA_SOURCE_LABELS);
+const formatFreshnessLabel = (freshness?: string) => formatLabel(freshness, DATA_FRESHNESS_LABELS);
 
 const FinancialDashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
@@ -490,11 +527,17 @@ const FinancialDashboard: React.FC = () => {
                       {/* Data source and additional info */}
                       <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                         <Typography variant="caption" color="text.secondary">
-                          Data Source: {data.data_source === 'fallback' 
-                            ? 'Market Estimate' 
-                            : data.data_source.replace('_', ' ').toUpperCase()
-                          }
+                          Data Source: {formatDataSourceLabel(data.data_source || data.source)}
+                          {data.from_cache ? ' • Cached snapshot' : ' • Live pull'}
                         </Typography>
+                        {data.data_freshness && (
+                          <>
+                            <br />
+                            <Typography variant="caption" color="text.secondary">
+                              Freshness: {formatFreshnessLabel(data.data_freshness)}
+                            </Typography>
+                          </>
+                        )}
                         <br />
                         <Typography variant="caption" color="text.secondary">
                           Last Updated: {new Date(data.last_updated).toLocaleString()}

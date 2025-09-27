@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
   const location = useLocation();
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Crop Predictor', icon: <Agriculture />, path: '/dashboard/crop-predictor', badge: 'ML' },
     { text: 'Disease Detector', icon: <LocalHospital />, path: '/dashboard/disease-detector', badge: 'AI' },
     { text: 'Financial Dashboard', icon: <TrendingUp />, path: '/dashboard/financial-dashboard', badge: 'ROI' },

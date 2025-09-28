@@ -42,6 +42,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { API_BASE } from '../config';
 import {
   ResponsiveContainer,
   RadarChart,
@@ -192,8 +193,6 @@ const INITIAL_FORM: PredictionRequest = {
   phosphorus: 40,
   potassium: 60,
 };
-
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5001';
 
 type SliderKey = 'temperature' | 'humidity' | 'ph' | 'rainfall';
 
@@ -1081,30 +1080,6 @@ const CropPredictor: React.FC = () => {
                                 bgcolor: 'rgba(129, 199, 132, 0.28)',
                                 color: '#E8F5E9',
                                 '& .MuiChip-icon': { color: '#B9F6CA' },
-                              }}
-                            />
-                          )}
-                          
-                          {/* Prediction source indicator */}
-                          {prediction.prediction_source === 'gemini_ai' && (
-                            <Chip
-                              icon={<SmartToy fontSize="small" />}
-                              label="AI Enhanced"
-                              sx={{
-                                backgroundColor: 'rgba(156, 39, 176, 0.28)',
-                                color: '#E1BEE7',
-                                '& .MuiChip-icon': { color: '#CE93D8' },
-                              }}
-                            />
-                          )}
-                          {prediction.validation_applied && prediction.prediction_source !== 'gemini_ai' && (
-                            <Chip
-                              icon={<CheckCircle fontSize="small" />}
-                              label="AI Verified"
-                              sx={{
-                                backgroundColor: 'rgba(33, 150, 243, 0.28)',
-                                color: '#BBDEFB',
-                                '& .MuiChip-icon': { color: '#90CAF9' },
                               }}
                             />
                           )}

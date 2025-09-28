@@ -484,7 +484,7 @@ class ColabStyleCropModel:
                 'predicted_yield': round(predicted_yield, 2),
                 'confidence': 'moderate',
                 'method': 'statistical_fallback',
-                'note': 'Prediction based on statistical averages (ML model not available)',
+                'prediction_source': 'agricultural_statistics',
                 'factors': {
                     'base_yield_per_ha': base_yield,
                     'state_factor': state_mult,

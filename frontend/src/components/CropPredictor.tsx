@@ -38,6 +38,8 @@ import {
   Language,
   HealthAndSafety,
   LightbulbCircle,
+  SmartToy,
+  CheckCircle,
 } from '@mui/icons-material';
 import axios from 'axios';
 import {
@@ -89,6 +91,12 @@ interface PredictionResponse {
   };
   feature_importance?: Record<string, number>;
   model_confidence?: number;
+  prediction_source?: string;
+  validation_applied?: boolean;
+  original_ml_prediction?: number;
+  gemini_confirmation?: number;
+  confidence?: string;
+  method?: string;
   error?: string;
 }
 
@@ -382,6 +390,20 @@ const CropPredictor: React.FC = () => {
       try {
         const payload = { ...form, language: targetLanguage };
         const { data } = await axios.post<ExtendedPredictionResponse>(`${API_BASE}/api/predict-yield`, payload);
+        
+        // Console logging for prediction source (as requested)
+        if (data.success) {
+          if (data.method === 'statistical_fallback' || data.prediction_source === 'agricultural_statistics') {
+            console.log('🔄 Using statistical fallback prediction method');
+          } else if (data.prediction_source === 'gemini_ai') {
+            console.log('🤖 Using Gemini AI prediction (validation applied)');
+          } else if (data.validation_applied) {
+            console.log('✅ ML prediction validated by Gemini AI');
+          } else {
+            console.log('🧠 Using machine learning prediction');
+          }
+        }
+        
         setPrediction(data);
         if (data.success) {
           if (options.background) {
@@ -1062,6 +1084,31 @@ const CropPredictor: React.FC = () => {
                               }}
                             />
                           )}
+                          
+                          {/* Prediction source indicator */}
+                          {prediction.prediction_source === 'gemini_ai' && (
+                            <Chip
+                              icon={<SmartToy fontSize="small" />}
+                              label="AI Enhanced"
+                              sx={{
+                                backgroundColor: 'rgba(156, 39, 176, 0.28)',
+                                color: '#E1BEE7',
+                                '& .MuiChip-icon': { color: '#CE93D8' },
+                              }}
+                            />
+                          )}
+                          {prediction.validation_applied && prediction.prediction_source !== 'gemini_ai' && (
+                            <Chip
+                              icon={<CheckCircle fontSize="small" />}
+                              label="AI Verified"
+                              sx={{
+                                backgroundColor: 'rgba(33, 150, 243, 0.28)',
+                                color: '#BBDEFB',
+                                '& .MuiChip-icon': { color: '#90CAF9' },
+                              }}
+                            />
+                          )}
+                          
                           <Chip
                             icon={<LightbulbCircle fontSize="small" />}
                             label={t('cropPredictor.results.areaChip', { value: form.area })}

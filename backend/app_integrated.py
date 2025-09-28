@@ -153,6 +153,87 @@ elif not genai:
 
 
 # =============================================================================
+# GEMINI YIELD VALIDATION SERVICE
+# =============================================================================
+def get_gemini_yield_prediction(crop_data: dict) -> dict:
+    """
+    Get yield prediction from Gemini AI for cross-validation
+    """
+    if not yield_recommendation_model:
+        return None
+    
+    try:
+        # Extract relevant data
+        crop = crop_data.get('Crop', 'unknown')
+        state = crop_data.get('State Name', 'India')
+        season = crop_data.get('Season', 'kharif')
+        area = crop_data.get('Area', 1.0)
+        rainfall = crop_data.get('Annual_Rainfall', 800)
+        fertilizer = crop_data.get('Fertilizer', 50)
+        pesticide = crop_data.get('Pesticide', 10)
+        temperature = crop_data.get('Temperature_C', 25)
+        humidity = crop_data.get('Humidity_%', 65)
+        ph = crop_data.get('pH', 6.5)
+        
+        # Create a detailed prompt for yield prediction
+        prompt = f"""
+You are an expert agricultural scientist specializing in crop yield prediction for Indian agriculture.
+
+Based on the following crop and environmental data, predict the total yield in metric tons:
+
+Crop Information:
+- Crop: {crop}
+- State: {state}
+- Season: {season}
+- Area: {area} hectares
+
+Environmental Conditions:
+- Annual Rainfall: {rainfall} mm
+- Average Temperature: {temperature}°C
+- Humidity: {humidity}%
+- Soil pH: {ph}
+
+Agricultural Inputs:
+- Fertilizer: {fertilizer} kg/hectare
+- Pesticide: {pesticide} kg/hectare
+
+Instructions:
+1. Consider the specific crop's typical yield for the given state and season
+2. Factor in environmental conditions (rainfall, temperature, humidity, pH)
+3. Account for fertilizer and pesticide usage effects
+4. Provide ONLY a numerical yield prediction in metric tons
+5. Be realistic based on Indian agricultural standards
+
+Response format: Just return the number (e.g., "3.45")
+"""
+
+        response = yield_recommendation_model.generate_content(prompt)
+        
+        if response and response.text:
+            # Extract numerical value from response
+            yield_text = response.text.strip()
+            # Remove any non-numeric characters except decimal point
+            import re
+            yield_match = re.search(r'(\d+(?:\.\d+)?)', yield_text)
+            
+            if yield_match:
+                gemini_yield = float(yield_match.group(1))
+                return {
+                    'success': True,
+                    'predicted_yield': gemini_yield,
+                    'method': 'gemini_ai',
+                    'raw_response': yield_text
+                }
+        
+        return None
+        
+    except Exception as e:
+        # Log error but don't expose to frontend
+        print(f"[Gemini Validation] Error: {e}")
+        return None
+
+
+# =============================================================================
 # AUTHENTICATION ROUTES
 # =============================================================================
 
@@ -643,7 +724,63 @@ def predict_crop_yield_public():
         return ('',204)
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
-    result = colab_style_model.predict(payload)
+    
+    # Get ML model prediction
+    ml_result = colab_style_model.predict(payload)
+    
+    # Get Gemini prediction for validation
+    gemini_result = get_gemini_yield_prediction(payload)
+    
+    # Validation logic: compare predictions and decide which to use
+    final_result = ml_result.copy()  # Start with ML result
+    
+    if ml_result.get('success') and gemini_result and gemini_result.get('success'):
+        ml_yield = ml_result.get('predicted_yield', 0)
+        gemini_yield = gemini_result.get('predicted_yield', 0)
+        
+        # Calculate percentage difference
+        if ml_yield > 0:
+            percentage_diff = abs(ml_yield - gemini_yield) / ml_yield * 100
+            
+            # Log for debugging (backend only)
+            print(f"[Prediction Validation] ML: {ml_yield}, Gemini: {gemini_yield}, Diff: {percentage_diff:.1f}%")
+            
+            # If difference is significant (>25%), use Gemini's prediction
+            if percentage_diff > 25:
+                print(f"[Prediction Validation] Large difference detected, using Gemini prediction")
+                final_result['predicted_yield'] = gemini_yield
+                final_result['prediction_source'] = 'gemini_ai'
+                final_result['validation_applied'] = True
+                final_result['original_ml_prediction'] = ml_yield
+                final_result['confidence'] = 'gemini_validated'
+            else:
+                print(f"[Prediction Validation] Predictions aligned, using ML prediction")
+                final_result['prediction_source'] = 'machine_learning'
+                final_result['validation_applied'] = True
+                final_result['gemini_confirmation'] = gemini_yield
+        else:
+            # If ML prediction is invalid, use Gemini
+            print(f"[Prediction Validation] ML prediction invalid, using Gemini")
+            final_result['predicted_yield'] = gemini_yield
+            final_result['prediction_source'] = 'gemini_ai'
+            final_result['validation_applied'] = True
+            
+    elif not ml_result.get('success') and gemini_result and gemini_result.get('success'):
+        # If ML failed but Gemini succeeded, use Gemini
+        print(f"[Prediction Validation] ML failed, using Gemini as primary")
+        final_result = gemini_result.copy()
+        final_result['prediction_source'] = 'gemini_ai'
+        final_result['fallback_reason'] = 'ml_model_failed'
+        
+    elif ml_result.get('success'):
+        # ML succeeded, Gemini failed/unavailable
+        final_result['prediction_source'] = 'machine_learning'
+        final_result['validation_applied'] = False
+        if ml_result.get('method') == 'statistical_fallback':
+            print(f"[Prediction Validation] Using statistical fallback")
+        
+    # Use the final result for language processing
+    result = final_result
 
     language = _normalize_language_code(data.get('language') or request.args.get('language'))
     print(f"[Predict Endpoint] Raw language from request: {data.get('language')}")
@@ -1443,11 +1580,11 @@ if __name__ == '__main__':
             if training_success:
                 print("[Deployment] ✅ Model trained successfully!")
             else:
-                print("[Deployment] ❌ Model training failed - predictions will use fallback methods")
+                print("[Deployment] ❌ Model training failed - using statistical fallback")
         else:
             print("[Deployment] ✅ Model already loaded and ready")
     except Exception as e:
-        print(f"[Deployment] ⚠️ Model auto-training error: {e} - predictions will use fallback methods")
+        print(f"[Deployment] ⚠️ Model auto-training error: {e} - using fallback prediction methods")
 
     # Run the app (disable reloader to avoid WinError 10038)
     app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)

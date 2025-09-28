@@ -680,6 +680,44 @@ def train_colab_model():
     meta = colab_style_model.get_meta()
     return jsonify({'success': ok, 'meta': meta, 'cap_target': colab_style_model.CAP_TARGET})
 
+# Public deployment setup endpoint (no auth required for initial setup)
+@app.route('/api/setup-model', methods=['GET', 'POST'])
+def setup_deployment_model():
+    """Public endpoint to initialize model for first deployment"""
+    try:
+        if colab_style_model.is_trained:
+            return jsonify({
+                'success': True, 
+                'message': 'Model already trained and ready',
+                'status': 'ready',
+                'meta': colab_style_model.get_meta()
+            })
+        
+        print("[Setup] Training model for deployment...")
+        ok = colab_style_model.train()
+        
+        if ok:
+            return jsonify({
+                'success': True, 
+                'message': 'Model trained successfully for deployment',
+                'status': 'trained',
+                'meta': colab_style_model.get_meta()
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': 'Model training failed - using statistical fallback',
+                'status': 'fallback_mode'
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'message': 'Setup failed - using statistical fallback',
+            'status': 'fallback_mode'
+        }), 500
+
 # -----------------------------------------------------------------------------
 # Colab-style model endpoints (exact pipeline mirror) - prefixed to avoid clash
 # -----------------------------------------------------------------------------
@@ -1396,6 +1434,20 @@ if __name__ == '__main__':
     if not os.path.exists('.env'):
         print("Warning: .env file not found. Please create one with the required environment variables.")
         print("Check .env.example for the required variables.")
+
+    # Auto-train model if missing (for deployment)
+    try:
+        if not colab_style_model.is_trained and not colab_style_model._loaded:
+            print("[Deployment] Model not found. Auto-training model for first deployment...")
+            training_success = colab_style_model.train()
+            if training_success:
+                print("[Deployment] ✅ Model trained successfully!")
+            else:
+                print("[Deployment] ❌ Model training failed - predictions will use fallback methods")
+        else:
+            print("[Deployment] ✅ Model already loaded and ready")
+    except Exception as e:
+        print(f"[Deployment] ⚠️ Model auto-training error: {e} - predictions will use fallback methods")
 
     # Run the app (disable reloader to avoid WinError 10038)
     app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)

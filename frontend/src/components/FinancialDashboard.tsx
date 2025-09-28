@@ -298,7 +298,7 @@ const FinancialDashboard: React.FC = () => {
                         <Box sx={{ flex: 1 }}>
                           <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'white' }}>
                             <Typography variant="h5">
-                              ${roiResult.financial_metrics?.net_profit.toLocaleString()}
+                              ₹{roiResult.financial_metrics?.net_profit.toLocaleString()}
                             </Typography>
                             <Typography variant="body2">Net Profit</Typography>
                           </Paper>
@@ -310,13 +310,13 @@ const FinancialDashboard: React.FC = () => {
                           Financial Breakdown
                         </Typography>
                         <Typography variant="body2">
-                          Total Investment: ${roiResult.financial_metrics?.total_investment.toLocaleString()}
+                          Total Investment: ₹{roiResult.financial_metrics?.total_investment.toLocaleString()}
                         </Typography>
                         <Typography variant="body2">
-                          Expected Revenue: ${roiResult.financial_metrics?.total_revenue.toLocaleString()}
+                          Expected Revenue: ₹{roiResult.financial_metrics?.total_revenue.toLocaleString()}
                         </Typography>
                         <Typography variant="body2">
-                          Profit per Acre: ${roiResult.financial_metrics?.profit_per_acre.toLocaleString()}
+                          Profit per Acre: ₹{roiResult.financial_metrics?.profit_per_acre.toLocaleString()}
                         </Typography>
                         <Typography variant="body2">
                           Break-even Yield: {roiResult.financial_metrics?.breakeven_yield_per_acre.toFixed(0)} kg/acre
@@ -329,7 +329,7 @@ const FinancialDashboard: React.FC = () => {
                             Market Information
                           </Typography>
                           <Typography variant="body2">
-                            Current Price: ${roiResult.market_info.current_price_per_kg.toFixed(4)}/kg
+                            Current Price: ₹{roiResult.market_info.current_price_per_kg.toFixed(4)}/kg
                           </Typography>
                           {roiResult.market_info.price_change_24h !== undefined && (
                             <Typography 
@@ -339,7 +339,7 @@ const FinancialDashboard: React.FC = () => {
                               }}
                             >
                               24h Change: {roiResult.market_info.price_change_24h >= 0 ? '+' : ''}
-                              ${roiResult.market_info.price_change_24h.toFixed(4)} 
+                              ₹{roiResult.market_info.price_change_24h.toFixed(4)} 
                               ({(roiResult.market_info.price_change_percent ?? 0) >= 0 ? '+' : ''}
                               {(roiResult.market_info.price_change_percent ?? 0).toFixed(2)}%)
                             </Typography>
@@ -485,7 +485,7 @@ const FinancialDashboard: React.FC = () => {
                             Current Price
                           </Typography>
                           <Typography variant="h6">
-                            ${data.current_price.toFixed(4)}
+                            ₹{data.current_price.toFixed(4)}
                           </Typography>
                         </Box>
                         <Box>
@@ -501,7 +501,7 @@ const FinancialDashboard: React.FC = () => {
                             }
                           >
                             {data.price_change_24h !== undefined
-                              ? `${data.price_change_24h >= 0 ? '+' : ''}$${data.price_change_24h.toFixed(4)}`
+                              ? `${data.price_change_24h >= 0 ? '+' : ''}₹${data.price_change_24h.toFixed(4)}`
                               : 'N/A'
                             }
                           </Typography>
@@ -546,8 +546,8 @@ const FinancialDashboard: React.FC = () => {
                           <>
                             <br />
                             <Typography variant="caption" color="text.secondary">
-                              7-day MA: ${data.ma_7_day.toFixed(4)}
-                              {data.ma_30_day && ` | 30-day MA: $${data.ma_30_day.toFixed(4)}`}
+                              7-day MA: ₹{data.ma_7_day.toFixed(4)}
+                              {data.ma_30_day && ` | 30-day MA: ₹${data.ma_30_day.toFixed(4)}`}
                             </Typography>
                           </>
                         )}

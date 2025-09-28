@@ -13,6 +13,7 @@ import CropPredictor from './components/CropPredictor';
 import DiseaseDetector from './components/DiseaseDetector';
 import FinancialDashboard from './components/FinancialDashboard';
 import MarketIntelligence from './components/MarketIntelligence';
+import MandiData from './components/MandiData';
 import CommunityForum from './components/CommunityForum';
 import Chatbot from './components/Chatbot';
 import MultilingualChatbot from './components/MultilingualChatbot';
@@ -256,6 +257,7 @@ function App() {
                       <Route path="/disease-detector" element={<DiseaseDetector />} />
                       <Route path="/financial-dashboard" element={<FinancialDashboard />} />
                       <Route path="/market-intelligence" element={<MarketIntelligence />} />
+                      <Route path="/mandi-data" element={<MandiData />} />
                       <Route path="/community-forum" element={<CommunityForum />} />
                       <Route path="/chatbot" element={<Chatbot />} />
                       <Route path="/multilingual-chatbot" element={<MultilingualChatbot />} />

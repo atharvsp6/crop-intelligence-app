@@ -280,20 +280,56 @@ class ColabStyleCropModel:
             pred = self.model.predict(df)[0]
             if pred < 0:
                 pred = 0
+
+            mean = (self.target_stats or {}).get('mean') if self.target_stats else None
+            std = (self.target_stats or {}).get('std') if self.target_stats else None
+            comparison_percent = None
+            yield_category_code = 'average'
+            yield_category_label = 'On par with average'
+
+            if mean and mean > 0:
+                comparison_percent = ((pred - mean) / mean) * 100
+                if comparison_percent >= 10:
+                    yield_category_code = 'above_average'
+                    yield_category_label = 'Above average'
+                elif comparison_percent <= -10:
+                    yield_category_code = 'below_average'
+                    yield_category_label = 'Below average'
+                else:
+                    yield_category_code = 'average'
+                    yield_category_label = 'Near average'
+
+            if not std or std <= 0:
+                ci_margin = max(0.1 * pred, 0.5)
+            else:
+                ci_margin = max(0.1 * pred, 0.35 * std)
+            lower_ci = max(0, pred - ci_margin)
+            upper_ci = pred + ci_margin
+
             result = {
                 'success': True,
                 'predicted_yield': round(float(pred), 4),
                 'yield_unit': 'ton/hectare',
                 'model_confidence': round(getattr(self.model,'oob_score_',0) or 0, 4),
-                'feature_count': len(self.feature_columns)
+                'feature_count': len(self.feature_columns),
+                'target_mean': round(float(mean), 4) if mean is not None else None,
+                'target_std': round(float(std), 4) if std is not None else None,
+                'comparison_to_average_percent': round(float(comparison_percent), 2) if comparison_percent is not None else None,
+                'yield_category': yield_category_code,
+                'yield_category_label': yield_category_label,
+                'confidence_interval': {
+                    'lower': round(float(lower_ci), 4),
+                    'upper': round(float(upper_ci), 4)
+                }
             }
             # Simple collapse diagnostic: compare prediction to training stats
             if self.target_stats and self.target_stats['std'] > 0:
                 # If prediction lies within a tiny band near mean repeatedly, user can flag.
-                mean = self.target_stats['mean']
-                std = self.target_stats['std']
-                if abs(pred - mean) < 0.05 * std:
+                mean_val = self.target_stats['mean']
+                std_val = self.target_stats['std']
+                if abs(pred - mean_val) < 0.05 * std_val:
                     result['variance_hint'] = 'Prediction close to mean; consider disabling target capping or adjusting features.'
+            result['input_echo'] = input_dict
             return result
         except Exception as e:
             return {'success': False, 'error': f'Prediction failed: {e}'}

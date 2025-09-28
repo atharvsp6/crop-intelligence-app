@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import sys, os
+import json
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
@@ -8,9 +9,15 @@ from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, creat
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
+try:
+    import google.generativeai as genai
+except Exception:  # pragma: no cover - optional dependency already in requirements
+    genai = None
 
 # Load environment variables FIRST
 load_dotenv()
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 # Import our services (after loading env vars)
 from database import get_collection
@@ -84,12 +91,11 @@ dashboard_service = DashboardService()
 multilingual_chatbot = None
 multilingual_chatbot_init_error = None
 if MultilingualAgriChatbot:
-    gemini_key = os.environ.get('GEMINI_API_KEY')
-    if gemini_key:
+    if GEMINI_API_KEY:
         try:
             # Allow override of model via env MULTILINGUAL_GEMINI_MODEL else fallback inside component
             override_model = os.environ.get('MULTILINGUAL_GEMINI_MODEL')
-            multilingual_chatbot = MultilingualAgriChatbot(gemini_key)
+            multilingual_chatbot = MultilingualAgriChatbot(GEMINI_API_KEY)
             if override_model and hasattr(multilingual_chatbot, 'model'):
                 try:
                     import google.generativeai as _genai
@@ -100,6 +106,50 @@ if MultilingualAgriChatbot:
         except Exception as _e:
             multilingual_chatbot_init_error = str(_e)
             print(f"Failed to init MultilingualAgriChatbot: {_e}")
+
+
+# =============================================================================
+# GEMINI YIELD RECOMMENDATION SERVICE
+# =============================================================================
+YIELD_LANGUAGE_NAMES = {
+    'en': 'English',
+    'hi': 'Hindi',
+    'bn': 'Bengali',
+    'mr': 'Marathi',
+    'ta': 'Tamil',
+    'te': 'Telugu'
+}
+
+# Language instructions for Gemini AI model
+YIELD_LANGUAGE_INSTRUCTIONS = {
+    'en': 'English',
+    'hi': 'Hindi (हिन्दी) - write everything in Devanagari script using Hindi vocabulary. Example: "फसल की उपज बढ़ाने के लिए..."',
+    'bn': 'Bengali (বাংলা) - write everything in Bengali script using Bengali vocabulary. Example: "ফসলের ফলন বৃদ্ধির জন্য..."', 
+    'mr': 'Marathi (मराठी) - write everything in Devanagari script using Marathi vocabulary. Example: "पिकाचे उत्पादन वाढवण्यासाठी..."',
+    'ta': 'Tamil (தமிழ்) - write everything in Tamil script using Tamil vocabulary. Example: "பயிர் உற்பத்தி அதிகரிக்க..."',
+    'te': 'Telugu (తెలుగు) - write everything in Telugu script using Telugu vocabulary. Example: "పంట దిగుబడి పెరుగుటకు..."'
+}
+
+yield_recommendation_model = None
+yield_recommendation_error = None
+
+if GEMINI_API_KEY and genai:
+    try:
+        # Allow dedicated override to keep chatbot model independent if desired
+        recommendation_model_name = (
+            os.environ.get('YIELD_GEMINI_MODEL')
+            or os.environ.get('MULTILINGUAL_GEMINI_MODEL')
+            or 'gemini-2.0-flash-exp'
+        )
+        genai.configure(api_key=GEMINI_API_KEY)
+        yield_recommendation_model = genai.GenerativeModel(recommendation_model_name)
+    except Exception as _rec_err:
+        yield_recommendation_error = f"Failed to initialize Gemini recommendation model: {_rec_err}"
+        print(yield_recommendation_error)
+elif not GEMINI_API_KEY:
+    yield_recommendation_error = 'GEMINI_API_KEY missing for yield recommendations.'
+elif not genai:
+    yield_recommendation_error = 'google-generativeai library not available.'
 
 
 # =============================================================================
@@ -564,6 +614,26 @@ def predict_crop_yield():
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
     result = colab_style_model.predict(payload)
+
+    language = _normalize_language_code(data.get('language'))
+    merged_payload = {**payload, **data}
+
+    if result.get('success'):
+        if yield_recommendation_model:
+            try:
+                recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
+                result['ai_recommendations'] = recommendations
+                result['ai_recommendations_language'] = language
+            except Exception as rec_err:
+                result['ai_recommendations_error'] = str(rec_err)
+                result['ai_recommendations_language'] = language
+        elif yield_recommendation_error:
+            result['ai_recommendations_error'] = yield_recommendation_error
+            result['ai_recommendations_language'] = language
+    else:
+        result['ai_recommendations_error'] = result.get('error') or 'Prediction failed; recommendations skipped.'
+
+    result['selected_language'] = language
     return jsonify(result)
 
 # Backward compatibility alias and public endpoint
@@ -573,7 +643,30 @@ def predict_crop_yield_public():
         return ('',204)
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
-    return jsonify(colab_style_model.predict(payload))
+    result = colab_style_model.predict(payload)
+
+    language = _normalize_language_code(data.get('language') or request.args.get('language'))
+    print(f"[Predict Endpoint] Raw language from request: {data.get('language')}")
+    print(f"[Predict Endpoint] Normalized language: {language}")
+    merged_payload = {**payload, **data}
+
+    if result.get('success'):
+        if yield_recommendation_model:
+            try:
+                recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
+                result['ai_recommendations'] = recommendations
+                result['ai_recommendations_language'] = language
+            except Exception as rec_err:
+                result['ai_recommendations_error'] = str(rec_err)
+                result['ai_recommendations_language'] = language
+        elif yield_recommendation_error:
+            result['ai_recommendations_error'] = yield_recommendation_error
+            result['ai_recommendations_language'] = language
+    else:
+        result['ai_recommendations_error'] = result.get('error') or 'Prediction failed; recommendations skipped.'
+
+    result['selected_language'] = language
+    return jsonify(result)
 
 # Training endpoint for the new model
 @app.route('/api/train-model', methods=['POST'])
@@ -612,6 +705,183 @@ def model_info_yield_aligned():
         data = _map_frontend_to_colab(data)
     return jsonify(colab_style_model.debug_aligned_features(data))
 
+
+def _normalize_language_code(code: str | None) -> str:
+    if not code:
+        return 'en'
+    normalized = code.split('-')[0].lower()
+    return normalized if normalized in YIELD_LANGUAGE_NAMES else 'en'
+
+
+def _current_conditions_from_payload(payload: dict) -> dict:
+    def _first(*keys):
+        for key in keys:
+            if key in payload and payload[key] not in (None, ''):
+                return payload[key]
+        return None
+
+    return {
+        'area': _first('area', 'Area'),
+        'rainfall': _first('annual_rainfall', 'Annual_Rainfall', 'rainfall', 'Rainfall_mm'),
+        'fertilizer': _first('fertilizer', 'Fertilizer'),
+        'pesticide': _first('pesticide', 'Pesticide'),
+        'season': _first('season', 'Season'),
+        'state': _first('state', 'State Name'),
+        'nitrogen': _first('nitrogen', 'N_req_kg_per_ha'),
+        'phosphorus': _first('phosphorus', 'P_req_kg_per_ha'),
+        'potassium': _first('potassium', 'K_req_kg_per_ha')
+    }
+
+
+def _conditions_text(conditions: dict) -> str:
+    def _format_value(value, suffix=''):
+        if value in (None, ''):
+            return 'Not specified'
+        try:
+            numeric = float(value)
+            if suffix:
+                return f"{numeric:.2f} {suffix}"
+            return f"{numeric:.2f}"
+        except (ValueError, TypeError):
+            return str(value)
+
+    return "\n".join([
+        f"- Area: {_format_value(conditions.get('area'), 'hectares')}",
+        f"- Annual Rainfall: {_format_value(conditions.get('rainfall'), 'mm')}",
+        f"- Fertilizer: {_format_value(conditions.get('fertilizer'), 'kg/hectare')}",
+        f"- Pesticide: {_format_value(conditions.get('pesticide'), 'kg/hectare')}",
+        f"- Season: {_format_value(conditions.get('season'))}",
+        f"- State: {_format_value(conditions.get('state'))}"
+    ])
+
+
+def _extract_json_from_text(text: str) -> dict:
+    if not text:
+        raise ValueError('Empty response from Gemini.')
+    start = text.find('{')
+    end = text.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError('No JSON object found in Gemini response.')
+    snippet = text[start:end+1]
+    return json.loads(snippet)
+
+
+def _generate_yield_recommendations(prediction: dict, original_payload: dict, language_code: str) -> dict:
+    if not yield_recommendation_model:
+        raise RuntimeError(yield_recommendation_error or 'Gemini recommendation model unavailable.')
+
+    language_code = _normalize_language_code(language_code)
+    language_name = YIELD_LANGUAGE_NAMES.get(language_code, 'English')
+    language_instruction = YIELD_LANGUAGE_INSTRUCTIONS.get(language_code, 'English')
+    
+    # Debug logging to track language selection
+    print(f"[AI Recommendations] Input language_code: {language_code}")
+    print(f"[AI Recommendations] Language name: {language_name}")
+    print(f"[AI Recommendations] Language instruction: {language_instruction}")
+
+    crop = original_payload.get('crop_type') or original_payload.get('Crop') or 'Crop'
+    predicted_yield = prediction.get('predicted_yield') or 0.0
+    yield_category = prediction.get('yield_category_label') or prediction.get('yield_category') or 'Average'
+    target_mean = prediction.get('target_mean') or predicted_yield
+    confidence_dict = prediction.get('confidence_interval') or {}
+    confidence_lower = confidence_dict.get('lower', max(0.0, predicted_yield * 0.9))
+    confidence_upper = confidence_dict.get('upper', predicted_yield * 1.1)
+
+    conditions = _current_conditions_from_payload(original_payload)
+    conditions_text = _conditions_text(conditions)
+
+    prompt = f"""
+You are an expert agricultural scientist specializing in crop yield optimization. Analyze the following crop prediction and provide specific, actionable recommendations.
+
+STYLE & LENGTH REQUIREMENTS:
+- Output MUST be valid JSON only (no markdown) using the provided schema and English keys.
+- All value text MUST be written in {language_instruction}.
+- Keep each field concise: MAX 180 characters per field value (split ideas across keys rather than long sentences).
+- Prefer short bullet-style phrases separated by semicolons; avoid long paragraphs.
+- No introductory or closing sentences outside the JSON.
+- If data is insufficient, respond with a short actionable placeholder in the specified language.
+
+CROP ANALYSIS INPUT:
+- Crop: {crop}
+- Predicted Yield: {predicted_yield:.2f} tons/hectare
+- Yield Category: {yield_category} (compared to average {target_mean:.2f})
+- Confidence Range: {confidence_lower:.2f} - {confidence_upper:.2f} tons/hectare
+
+CURRENT CONDITIONS:
+{conditions_text}
+
+Please provide comprehensive recommendations in the following priority areas:
+
+1. FERTILIZER MANAGEMENT (Primary Focus):
+- Optimal NPK ratios for {crop}
+- Application timing and split doses
+- Organic vs chemical fertilizer recommendations
+- Micronutrient requirements
+- Cost-effective fertilizer schedule
+
+2. IRRIGATION PRACTICES (Secondary Focus):
+- Optimal irrigation frequency and amount
+- Critical growth stages requiring water
+- Water-efficient irrigation methods
+- Moisture management strategies
+- Drought mitigation techniques
+
+3. PLANTING PRACTICES (Tertiary Focus):
+- Best planting dates for the stated season
+- Optimal seed variety recommendations
+- Plant spacing and density
+- Soil preparation techniques
+- Crop rotation suggestions
+
+4. YIELD IMPROVEMENT POTENTIAL:
+- Expected yield increase with optimizations
+- Timeline for implementing changes
+- Priority actions for immediate impact
+- Long-term sustainability practices
+
+Also provide a cost-benefit summary, including ROI estimate, payback period, and potential risks. Keep estimates very short.
+
+Format your response strictly as JSON with these exact keys:
+{{
+    "yield_assessment": "...",
+    "fertilizer_recommendations": {{
+        "optimal_npk": "...",
+        "application_schedule": "...",
+        "organic_options": "...",
+        "micronutrients": "..."
+    }},
+    "irrigation_recommendations": {{
+        "frequency": "...",
+        "critical_stages": "...",
+        "methods": "...",
+        "water_management": "..."
+    }},
+    "planting_recommendations": {{
+        "optimal_dates": "...",
+        "variety_selection": "...",
+        "spacing": "...",
+        "soil_prep": "..."
+    }},
+    "improvement_potential": {{
+        "expected_increase": "...",
+        "timeline": "...",
+        "priority_actions": "...",
+        "investment_needed": "..."
+    }},
+    "cost_benefit": {{
+        "roi_estimate": "...",
+        "payback_period": "...",
+        "risk_factors": "..."
+    }}
+}}
+
+Return ONLY valid JSON with no extra text. Ensure every value is in the specified language: {language_instruction}. Avoid exceeding length guidance.
+"""
+
+    response = yield_recommendation_model.generate_content(prompt)
+    raw_text = response.text.strip() if hasattr(response, 'text') else ''
+    parsed = _extract_json_from_text(raw_text)
+    return parsed, raw_text
 def _map_frontend_to_colab(d: dict) -> dict:
     mapping = {
         'crop_type': 'Crop',
@@ -747,7 +1017,7 @@ def get_real_time_price():
     try:
         user_id = get_jwt_identity()
         commodity = request.args.get('commodity')
-        region = request.args.get('region', 'US')  # Default to US market
+        region = request.args.get('region', 'IN')  # Default to Indian market for Mandi API priority
         
         if not commodity:
             return jsonify({'error': 'Commodity parameter is required'}), 400

@@ -169,11 +169,11 @@ class RealTimeMarketService:
         """Get real-time price from multiple sources with fallback"""
         sources_to_try = []
         
-        # Prioritize sources based on region
+        # Prioritize sources based on region, with Mandi API first as requested
         if region.upper() == 'IN':
             sources_to_try = ['data_gov_in', 'yahoo_finance', 'alpha_vantage', 'commodities_api']
         else:
-            sources_to_try = ['yahoo_finance', 'alpha_vantage', 'commodities_api', 'world_bank']
+            sources_to_try = ['data_gov_in', 'yahoo_finance', 'alpha_vantage', 'commodities_api', 'world_bank']
         
         for source in sources_to_try:
             try:
@@ -543,8 +543,8 @@ class RealTimeMarketService:
             
             for comm in commodities_to_analyze:
                 try:
-                    # Get real-time price data
-                    price_data = self.get_real_time_price_multi_source(comm, 'US')
+                    # Get real-time price data with Indian region for Mandi API priority
+                    price_data = self.get_real_time_price_multi_source(comm, 'IN')
                     
                     if price_data and price_data.get('price'):
                         change_percent = price_data.get('change_percent', 0)
@@ -558,7 +558,7 @@ class RealTimeMarketService:
                             'price_change_percentage': change_percent,
                             'data_source': price_data.get('data_source') or price_data.get('source', 'unknown'),
                             'from_cache': price_data.get('from_cache', False),
-                            'currency': price_data.get('currency', 'USD'),
+                            'currency': 'INR',  # Set to INR for Indian market display
                             'last_updated': price_data.get('last_updated', datetime.utcnow().isoformat()),
                             'price_history': price_history,
                             'trend_direction': 'up' if change_percent > 0 else 'down' if change_percent < 0 else 'stable',

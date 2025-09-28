@@ -38,8 +38,8 @@ venv.bak/
 *.joblib
 *.pkl
 *.pickle
-!backend/colab_rf_model.joblib
-!backend/colab_rf_model_meta.json
+# !backend/colab_rf_model.joblib  # Commented out to ignore
+# !backend/colab_rf_model_meta.json
 
 
 # IDE

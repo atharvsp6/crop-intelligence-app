@@ -20,7 +20,9 @@ import {
   Translate,
   Insights,
   ShowChart,
+  Storefront,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 
 interface SidebarProps {
   open: boolean;
@@ -32,15 +34,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const { t } = useTranslation();
+
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Crop Predictor', icon: <Agriculture />, path: '/dashboard/crop-predictor', badge: 'ML' },
-    { text: 'Disease Detector', icon: <LocalHospital />, path: '/dashboard/disease-detector', badge: 'AI' },
-    { text: 'Financial Dashboard', icon: <TrendingUp />, path: '/dashboard/financial-dashboard', badge: 'ROI' },
-    { text: 'Market Intelligence', icon: <ShowChart />, path: '/dashboard/market-intelligence', badge: 'Live' },
-    { text: 'Community Forum', icon: <Forum />, path: '/dashboard/community-forum', badge: 'Social' },
-    { text: 'AI Chatbot', icon: <Chat />, path: '/dashboard/chatbot', badge: 'Beta' },
-    { text: 'Multilingual Chat', icon: <Translate />, path: '/dashboard/multilingual-chatbot' },
+    { key: 'dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { key: 'cropPredictor', icon: <Agriculture />, path: '/dashboard/crop-predictor', badge: 'ML' },
+    { key: 'diseaseDetector', icon: <LocalHospital />, path: '/dashboard/disease-detector', badge: 'AI' },
+    { key: 'financialDashboard', icon: <TrendingUp />, path: '/dashboard/financial-dashboard', badge: 'ROI' },
+    { key: 'marketIntelligence', icon: <ShowChart />, path: '/dashboard/market-intelligence', badge: 'Live' },
+    { key: 'mandiData', icon: <Storefront />, path: '/dashboard/mandi-data', badge: 'Gov' },
+    { key: 'communityForum', icon: <Forum />, path: '/dashboard/community-forum', badge: 'Social' },
+    { key: 'chatbot', icon: <Chat />, path: '/dashboard/chatbot', badge: 'Beta' },
+    { key: 'multilingualChat', icon: <Translate />, path: '/dashboard/multilingual-chatbot' },
   ];
 
   const collapsedWidth = 64;
@@ -77,14 +82,14 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
             display: 'block',
           }}
         >
-          navigation
+          {t('sidebar.navigation')}
         </Typography>
         <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {menuItems.map((item) => {
             const selected = location.pathname === item.path;
             return (
               <ListItemButton
-                key={item.text}
+                key={item.path}
                 onClick={() => navigate(item.path)}
                 selected={selected}
                 sx={{
@@ -116,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.text}
+                  primary={t(`sidebar.items.${item.key}`)}
                   primaryTypographyProps={{
                     fontSize: '0.95rem',
                     letterSpacing: '0.01em',
@@ -166,20 +171,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
             </Box>
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Smart Farming Tips
+                {t('sidebar.tips.title')}
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Stay ahead with weather alerts & market signals
+                {t('sidebar.tips.subtitle')}
               </Typography>
             </Box>
           </Box>
           <Chip
-            label="View today's insights"
+            label={t('sidebar.tips.cta')}
             size="small"
             sx={{
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               color: 'text.primary',
               fontWeight: 600,
+              marginBottom:10
             }}
           />
         </Box>

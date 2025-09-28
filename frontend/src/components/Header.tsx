@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -26,8 +26,12 @@ import {
   Logout,
   Settings,
   AutoAwesome,
+  Language,
+  Check,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
+import { SUPPORTED_LANGUAGES } from '../i18n';
 
 interface HeaderProps {
   onThemeToggle: () => void;
@@ -41,8 +45,16 @@ const Header: React.FC<HeaderProps> = ({
   onSidebarToggle,
 }) => {
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
+  const languageMenuOpen = Boolean(languageAnchor);
+
+  const currentLanguage = useMemo(
+    () => SUPPORTED_LANGUAGES.find((lang) => lang.code === i18n.language) || SUPPORTED_LANGUAGES[0],
+    [i18n.language]
+  );
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -55,6 +67,19 @@ const Header: React.FC<HeaderProps> = ({
   const handleLogout = () => {
     logout();
     handleClose();
+  };
+
+  const handleLanguageOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setLanguageAnchor(event.currentTarget);
+  };
+
+  const handleLanguageClose = () => {
+    setLanguageAnchor(null);
+  };
+
+  const handleLanguageChange = (code: string) => {
+    i18n.changeLanguage(code);
+    handleLanguageClose();
   };
   return (
     <AppBar
@@ -116,10 +141,10 @@ const Header: React.FC<HeaderProps> = ({
                 letterSpacing: '0.02em',
               }}
             >
-              🌾 YieldWise
+              🌾 {t('header.appName')}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', letterSpacing: '0.08em' }}>
-              SMART AI-POWERED FARMING
+              {t('header.tagline')}
             </Typography>
           </Box>
         </Box>
@@ -127,13 +152,13 @@ const Header: React.FC<HeaderProps> = ({
         <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1.5, ml: 4 }}>
           <Chip
             icon={<Nature fontSize="small" />}
-            label="Optimal growing window"
+            label={t('header.optimalWindow')}
             className="chip-muted"
             sx={{ pl: 0.5, pr: 1.5, height: 32 }}
           />
           <Chip
             icon={<AutoAwesome fontSize="small" />}
-            label="AI insights refreshed"
+            label={t('header.aiRefreshed')}
             sx={{
               borderRadius: '999px',
               height: 32,
@@ -147,7 +172,28 @@ const Header: React.FC<HeaderProps> = ({
         <Box sx={{ flexGrow: 1 }} />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Tooltip title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <Tooltip title={t('header.languageLabel')}>
+            <Chip
+              icon={<Language fontSize="small" />}
+              label={currentLanguage.nativeName}
+              onClick={handleLanguageOpen}
+              role="button"
+              aria-haspopup="menu"
+              aria-label={t('header.languageLabel')}
+              sx={{
+                borderRadius: '999px',
+                height: 32,
+                pl: 0.5,
+                pr: 1.25,
+                backgroundColor: 'rgba(125, 228, 154, 0.16)',
+                '&:hover': {
+                  backgroundColor: 'rgba(125, 228, 154, 0.24)',
+                },
+              }}
+            />
+          </Tooltip>
+
+          <Tooltip title={darkMode ? t('header.themeToggle.light') : t('header.themeToggle.dark')}>
             <IconButton
               onClick={onThemeToggle}
               sx={{
@@ -166,7 +212,7 @@ const Header: React.FC<HeaderProps> = ({
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Notifications">
+          <Tooltip title={t('header.notifications')}>
             <IconButton
               sx={{
                 width: 44,
@@ -225,21 +271,48 @@ const Header: React.FC<HeaderProps> = ({
               <ListItemIcon>
                 <AccountCircle fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary={user?.name || 'Grower'} secondary="Profile" />
+              <ListItemText primary={user?.name || t('header.menu.profilePrimary')} secondary={t('header.menu.profileSecondary')} />
             </MenuItem>
             <MenuItem>
               <ListItemIcon>
                 <Settings fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Workspace Settings" />
+              <ListItemText primary={t('header.menu.settings')} />
             </MenuItem>
             <Divider sx={{ borderColor: 'rgba(125, 228, 154, 0.12)' }} />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <Logout fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Sign out" />
+              <ListItemText primary={t('header.menu.logout')} />
             </MenuItem>
+          </Menu>
+
+          <Menu
+            anchorEl={languageAnchor}
+            open={languageMenuOpen}
+            onClose={handleLanguageClose}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            sx={{
+              '& .MuiPaper-root': {
+                borderRadius: 3,
+                minWidth: 220,
+                py: 0.5,
+              },
+            }}
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const selected = lang.code === currentLanguage.code;
+              return (
+                <MenuItem key={lang.code} selected={selected} onClick={() => handleLanguageChange(lang.code)}>
+                  <ListItemIcon>
+                    {selected ? <Check fontSize="small" color="primary" /> : <Language fontSize="small" />}
+                  </ListItemIcon>
+                  <ListItemText primary={lang.label} secondary={lang.nativeName} />
+                </MenuItem>
+              );
+            })}
           </Menu>
         </Box>
       </Toolbar>

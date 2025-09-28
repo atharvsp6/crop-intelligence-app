@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -40,95 +40,214 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE } from '../config';
+import { useTranslation } from 'react-i18next';
 
-const statHighlights = [
+const baseStatHighlights = [
   {
-    label: 'Successful predictions',
+    labelKey: 'dashboard.stats.items.success.label',
+    fallbackLabel: 'Successful predictions',
     value: '1,284',
-    delta: '+12% this week',
+    deltaKey: 'dashboard.stats.items.success.delta',
+    fallbackDelta: '+12% this week',
     icon: <ShowChart fontSize="small" />,
   },
   {
-    label: 'Farms optimized',
+    labelKey: 'dashboard.stats.items.farms.label',
+    fallbackLabel: 'Farms optimized',
     value: '642',
-    delta: '+48 new partners',
+    deltaKey: 'dashboard.stats.items.farms.delta',
+    fallbackDelta: '+48 new partners',
     icon: <Grass fontSize="small" />,
   },
   {
-    label: 'Risk alerts resolved',
+    labelKey: 'dashboard.stats.items.risk.label',
+    fallbackLabel: 'Risk alerts resolved',
     value: '87%',
-    delta: 'Response time ↓ 18%',
+    deltaKey: 'dashboard.stats.items.risk.delta',
+    fallbackDelta: 'Response time ↓ 18%',
     icon: <Bolt fontSize="small" />,
   },
 ];
 
-const featureShortcuts = [
+const baseFeatureShortcuts = [
   {
-    title: 'Crop Predictor',
-    description: 'Personalized yield simulations and seasonal planning.',
+    titleKey: 'dashboard.modules.cropPredictor.title',
+    descriptionKey: 'dashboard.modules.cropPredictor.description',
     icon: <Agriculture fontSize="medium" />,
     path: '/dashboard/crop-predictor',
   },
   {
-    title: 'Disease Detector',
-    description: 'Upload plant imagery and get AI-driven diagnostics.',
+    titleKey: 'dashboard.modules.diseaseDetector.title',
+    descriptionKey: 'dashboard.modules.diseaseDetector.description',
     icon: <LocalHospital fontSize="medium" />,
     path: '/dashboard/disease-detector',
   },
   {
-    title: 'Financial Dashboard',
-    description: 'ROI calculators, price intelligence, and market alerts.',
+    titleKey: 'dashboard.modules.financialDashboard.title',
+    descriptionKey: 'dashboard.modules.financialDashboard.description',
     icon: <TrendingUp fontSize="medium" />,
     path: '/dashboard/financial-dashboard',
   },
   {
-    title: 'Community Forum',
-    description: 'Multilingual knowledge shares from growers worldwide.',
+    titleKey: 'dashboard.modules.communityForum.title',
+    descriptionKey: 'dashboard.modules.communityForum.description',
     icon: <Forum fontSize="medium" />,
     path: '/dashboard/community-forum',
   },
   {
-    title: 'AI Assistant',
-    description: 'Conversational agronomy with context-aware insights.',
+    titleKey: 'dashboard.modules.chatbot.title',
+    descriptionKey: 'dashboard.modules.chatbot.description',
     icon: <Chat fontSize="medium" />,
     path: '/dashboard/chatbot',
   },
 ];
 
-const yieldTrendData = [
-  { month: 'Mar', yield: 42 },
-  { month: 'Apr', yield: 48 },
-  { month: 'May', yield: 57 },
-  { month: 'Jun', yield: 63 },
-  { month: 'Jul', yield: 71 },
-  { month: 'Aug', yield: 76 },
-  { month: 'Sep', yield: 83 },
+const baseYieldTrendData = [
+  { monthKey: 'mar', yield: 42 },
+  { monthKey: 'apr', yield: 48 },
+  { monthKey: 'may', yield: 57 },
+  { monthKey: 'jun', yield: 63 },
+  { monthKey: 'jul', yield: 71 },
+  { monthKey: 'aug', yield: 76 },
+  { monthKey: 'sep', yield: 83 },
 ];
 
-const soilHealthSignals = [
-  { title: 'Soil moisture', score: '68%', state: 'Optimal', tone: 'success' },
-  { title: 'Nutrient balance', score: 'Moderate', state: 'Add organic matter', tone: 'warning' },
-  { title: 'Pest pressure', score: 'Low', state: 'Scouting recommended next week', tone: 'info' },
-  { title: 'Weather risk', score: 'Alert', state: 'High winds predicted Friday', tone: 'error' },
+const baseSoilHealthSignals = [
+  {
+    titleKey: 'dashboard.soil.signals.moisture.title',
+    fallbackTitle: 'Soil moisture',
+    score: '68%',
+    stateKey: 'dashboard.soil.signals.moisture.state',
+    fallbackState: 'Optimal',
+    tone: 'success',
+  },
+  {
+    titleKey: 'dashboard.soil.signals.nutrients.title',
+    fallbackTitle: 'Nutrient balance',
+    score: 'Moderate',
+    stateKey: 'dashboard.soil.signals.nutrients.state',
+    fallbackState: 'Add organic matter',
+    tone: 'warning',
+  },
+  {
+    titleKey: 'dashboard.soil.signals.pest.title',
+    fallbackTitle: 'Pest pressure',
+    score: 'Low',
+    stateKey: 'dashboard.soil.signals.pest.state',
+    fallbackState: 'Scouting recommended next week',
+    tone: 'info',
+  },
+  {
+    titleKey: 'dashboard.soil.signals.weather.title',
+    fallbackTitle: 'Weather risk',
+    score: 'Alert',
+    stateKey: 'dashboard.soil.signals.weather.state',
+    fallbackState: 'High winds predicted Friday',
+    tone: 'error',
+  },
 ];
 
-const quickInsights = [
-  { label: 'Irrigation schedule synced', icon: <Timeline fontSize="small" />, accent: 'primary.main' },
-  { label: 'New mandi price bulletin ready', icon: <Map fontSize="small" />, accent: 'secondary.main' },
+const baseQuickInsights = [
+  { labelKey: 'dashboard.quickInsights.irrigation', icon: <Timeline fontSize="small" />, accent: 'primary.main' },
+  { labelKey: 'dashboard.quickInsights.mandi', icon: <Map fontSize="small" />, accent: 'secondary.main' },
 ];
+
+type WeatherErrorType = 'fetch' | 'denied' | 'unsupported';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [weather, setWeather] = useState<any>(null);
+  const { t } = useTranslation();
+
+  const defaultStats = useMemo(
+    () =>
+      baseStatHighlights.map((stat) => ({
+        label: t(stat.labelKey),
+        value: stat.value,
+        delta: t(stat.deltaKey),
+        icon: stat.icon,
+      })),
+    [t]
+  );
+
+  const statLabelMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    baseStatHighlights.forEach((stat) => {
+      map[stat.fallbackLabel] = t(stat.labelKey);
+    });
+    return map;
+  }, [t]);
+
+  const statDeltaMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    baseStatHighlights.forEach((stat) => {
+      map[stat.fallbackDelta] = t(stat.deltaKey);
+    });
+    return map;
+  }, [t]);
+
+  const quickInsightChips = useMemo(
+    () =>
+      baseQuickInsights.map((insight) => ({
+        ...insight,
+        label: t(insight.labelKey),
+      })),
+    [t]
+  );
+
+  const defaultYieldData = useMemo(
+    () => baseYieldTrendData.map((entry) => ({ month: t(`dashboard.months.${entry.monthKey}`), yield: entry.yield })),
+    [t]
+  );
+
+  const defaultSoilSignals = useMemo(
+    () =>
+      baseSoilHealthSignals.map((signal) => ({
+        title: t(signal.titleKey),
+        score: signal.score,
+        state: t(signal.stateKey),
+        tone: signal.tone,
+      })),
+    [t]
+  );
+
+  const soilTitleMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    baseSoilHealthSignals.forEach((signal) => {
+      map[signal.fallbackTitle] = t(signal.titleKey);
+    });
+    return map;
+  }, [t]);
+
+  const soilStateMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    baseSoilHealthSignals.forEach((signal) => {
+      map[signal.fallbackState] = t(signal.stateKey);
+    });
+    return map;
+  }, [t]);
+
+  const featureShortcuts = useMemo(
+    () =>
+      baseFeatureShortcuts.map((feature) => ({
+        title: t(feature.titleKey),
+        description: t(feature.descriptionKey),
+        icon: feature.icon,
+        path: feature.path,
+      })),
+    [t]
+  );
+
+  const [weather, setWeather] = useState<{ temperature: number; condition?: string; humidity?: number; description?: string | null } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
-  const [weatherError, setWeatherError] = useState<string | null>(null);
-  const [location, setLocation] = useState<string>('Getting location...');
-  const [dashboardStats, setDashboardStats] = useState(statHighlights);
-  const [yieldData, setYieldData] = useState(yieldTrendData);
-  const [soilSignals, setSoilSignals] = useState(soilHealthSignals);
+  const [weatherError, setWeatherError] = useState<WeatherErrorType | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<any[] | null>(null);
+  const [yieldData, setYieldData] = useState<any[] | null>(null);
+  const [soilSignals, setSoilSignals] = useState<any[] | null>(null);
 
   const fetchWeatherData = useCallback(async (lat: number, lon: number) => {
     try {
+      setWeatherError(null);
       const response = await axios.get(`${API_BASE}/api/weather/current?lat=${lat}&lon=${lon}`);
 
       if (response.data.success) {
@@ -138,21 +257,21 @@ const Dashboard: React.FC = () => {
           temperature: Math.round(weatherData.temperature),
           condition: weatherData.main,
           humidity: weatherData.humidity,
-          description: weatherData.description,
-          location: locationData.name,
+          description: weatherData.description || null,
         });
-        setLocation(locationData.name || 'Your location');
+        setLocation(locationData.name || null);
       } else {
         throw new Error(response.data.error || 'Failed to fetch weather');
       }
     } catch (error) {
       console.error('Weather fetch error:', error);
-      setWeatherError('Failed to fetch weather data');
+      setWeatherError('fetch');
+      setLocation(null);
       setWeather({
         temperature: 22,
         condition: 'Sunny',
         humidity: 65,
-        description: 'Weather data unavailable',
+        description: null,
       });
     } finally {
       setWeatherLoading(false);
@@ -193,20 +312,20 @@ const Dashboard: React.FC = () => {
         },
         (error) => {
           console.error('Error getting location:', error);
-          setWeatherError('Location access denied. Using default weather data.');
-          setLocation('Location unavailable');
+          setWeatherError('denied');
+          setLocation(null);
           setWeatherLoading(false);
           setWeather({
             temperature: 22,
             condition: 'Sunny',
             humidity: 65,
-            description: 'Perfect growing weather',
+            description: null,
           });
         }
       );
     } else {
-      setWeatherError('Geolocation not supported by this browser.');
-      setLocation('Location unavailable');
+      setWeatherError('unsupported');
+      setLocation(null);
       setWeatherLoading(false);
     }
   }, [fetchWeatherData]);
@@ -215,6 +334,72 @@ const Dashboard: React.FC = () => {
     getUserLocation();
     fetchDashboardData();
   }, [getUserLocation, fetchDashboardData]);
+
+  const statsToDisplay = useMemo(() => {
+    if (dashboardStats && dashboardStats.length > 0) {
+      return dashboardStats.map((stat, index) => {
+        const baseIndex = index % defaultStats.length;
+        const base = defaultStats[baseIndex];
+        const baseKeys = baseStatHighlights[baseIndex];
+        const label = stat.labelKey
+          ? t(stat.labelKey)
+          : typeof stat.label === 'string'
+          ? statLabelMap[stat.label] || stat.label
+          : base.label;
+        const delta = stat.deltaKey
+          ? t(stat.deltaKey)
+          : typeof stat.delta === 'string'
+          ? statDeltaMap[stat.delta] || stat.delta
+          : base.delta;
+        return {
+          ...base,
+          ...stat,
+          label,
+          delta,
+          icon: stat.icon || base.icon || baseKeys.icon,
+          value: stat.value || base.value,
+        };
+      });
+    }
+    return defaultStats;
+  }, [dashboardStats, defaultStats, statLabelMap, statDeltaMap, t]);
+
+  const soilSignalItems = useMemo(() => {
+    if (soilSignals && soilSignals.length > 0) {
+      return soilSignals.map((signal, index) => {
+        const baseIndex = index % defaultSoilSignals.length;
+        const base = defaultSoilSignals[baseIndex];
+        const title = signal.titleKey
+          ? t(signal.titleKey)
+          : soilTitleMap[signal.title as keyof typeof soilTitleMap] || signal.title || base.title;
+        const state = signal.stateKey
+          ? t(signal.stateKey)
+          : soilStateMap[signal.state as keyof typeof soilStateMap] || signal.state || base.state;
+        return {
+          ...base,
+          ...signal,
+          title,
+          state,
+          score: signal.score || base.score,
+          tone: signal.tone || base.tone,
+        };
+      });
+    }
+    return defaultSoilSignals;
+  }, [soilSignals, defaultSoilSignals, soilTitleMap, soilStateMap, t]);
+
+  const yieldChartData = useMemo(
+    () => (yieldData && yieldData.length > 0 ? yieldData : defaultYieldData),
+    [yieldData, defaultYieldData]
+  );
+
+  const weatherErrorMessage = weatherError ? t(`dashboard.weather.errors.${weatherError}`) : null;
+  const locationLabel = location ?? t('dashboard.weather.locationFallback');
+  const weatherDescription = weather?.description ?? t('dashboard.weather.descriptionFallback');
+  const humidityLabel =
+    weather && typeof weather.humidity === 'number'
+      ? t('dashboard.weather.humidity', { value: weather.humidity })
+      : null;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -236,20 +421,20 @@ const Dashboard: React.FC = () => {
         >
           <Box sx={{ flex: 1.2 }}>
             <Chip
-              label="Live intelligence"
+              label={t('dashboard.hero.badge')}
               size="small"
               className="chip-muted"
               icon={<ShowChart fontSize="small" />}
               sx={{ mb: 2 }}
             />
             <Typography variant="h3" sx={{ fontWeight: 700, mb: 2 }}>
-              Steering smarter fields with real-time intelligence
+              {t('dashboard.hero.title')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520, mb: 3 }}>
-              YieldWise brings together crop prediction, disease diagnostics, market pricing, and farmer collaboration in one intuitive workspace.
+              {t('dashboard.hero.subtitle')}
             </Typography>
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
-              {quickInsights.map((insight, index) => (
+              {quickInsightChips.map((insight, index) => (
                 <Chip
                   key={index}
                   icon={insight.icon}
@@ -269,14 +454,14 @@ const Dashboard: React.FC = () => {
                 size="large"
                 onClick={() => navigate('/dashboard/crop-predictor')}
               >
-                Open crop predictor
+                {t('dashboard.hero.primaryCta')}
               </Button>
               <Button
                 variant="outlined"
                 size="large"
                 onClick={() => navigate('/dashboard/chatbot')}
               >
-                Ask the AI agronomist
+                {t('dashboard.hero.secondaryCta')}
               </Button>
             </Stack>
           </Box>
@@ -294,19 +479,19 @@ const Dashboard: React.FC = () => {
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Field weather snapshot
+              {t('dashboard.weather.title')}
             </Typography>
 
-            {weatherError && (
+            {weatherErrorMessage && (
               <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                {weatherError}
+                {weatherErrorMessage}
               </Alert>
             )}
 
             {weatherLoading ? (
               <Chip
                 icon={<CircularProgress size={16} />}
-                label="Loading weather..."
+                label={t('dashboard.weather.loading')}
                 sx={{ alignSelf: 'flex-start', borderRadius: '999px' }}
               />
             ) : (
@@ -327,13 +512,13 @@ const Dashboard: React.FC = () => {
                     {weather?.temperature ?? 22}°C
                   </Typography>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    {weather?.description || 'Weather unavailable'}
+                    {weatherDescription}
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip icon={<LocationOn />} label={location} size="small" sx={{ borderRadius: '999px' }} />
+                    <Chip icon={<LocationOn />} label={locationLabel} size="small" sx={{ borderRadius: '999px' }} />
                     <Chip icon={<Thermostat />} label={`${weather?.temperature ?? 22}°C`} size="small" sx={{ borderRadius: '999px' }} />
-                    {weather?.humidity && (
-                      <Chip icon={<Water />} label={`Humidity ${weather.humidity}%`} size="small" sx={{ borderRadius: '999px' }} />
+                    {humidityLabel && (
+                      <Chip icon={<Water />} label={humidityLabel} size="small" sx={{ borderRadius: '999px' }} />
                     )}
                   </Stack>
                 </Box>
@@ -344,8 +529,8 @@ const Dashboard: React.FC = () => {
       </Card>
 
       <Box className="layout-grid three">
-        {dashboardStats && dashboardStats.length > 0 ? dashboardStats.map((stat) => (
-          <Card key={stat.label} className="surface-card">
+        {statsToDisplay.length > 0 ? statsToDisplay.map((stat, index) => (
+          <Card key={`${stat.label}-${index}`} className="surface-card">
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="flex-start">
                 <Avatar
@@ -374,20 +559,20 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         )) : (
-          <Typography>Loading stats...</Typography>
+          <Typography>{t('dashboard.stats.loading')}</Typography>
         )}
       </Box>
 
       <Box className="layout-grid two">
         <Card className="surface-card" sx={{ p: { xs: 2.5, md: 3 } }}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Yield outlook
+            {t('dashboard.yield.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Projected yield trajectory combining soil telemetry, satellite weather, and historical trends.
+            {t('dashboard.yield.description')}
           </Typography>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={yieldData && yieldData.length > 0 ? yieldData : yieldTrendData}>
+            <AreaChart data={yieldChartData}>
               <defs>
                 <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#7DDF92" stopOpacity={0.9} />
@@ -413,15 +598,15 @@ const Dashboard: React.FC = () => {
 
         <Card className="surface-card" sx={{ p: { xs: 2.5, md: 3 } }}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-            Field readiness signals
+            {t('dashboard.readiness.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Automated agronomy checks compiled from IoT probes and scouting updates across your farms.
+            {t('dashboard.readiness.description')}
           </Typography>
           <Stack spacing={2.2}>
-            {soilSignals && soilSignals.length > 0 ? soilSignals.map((signal) => (
+            {soilSignalItems && soilSignalItems.length > 0 ? soilSignalItems.map((signal, index) => (
               <Box
-                key={signal.title}
+                key={`${signal.title}-${index}`}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -444,7 +629,7 @@ const Dashboard: React.FC = () => {
                 <Chip label={signal.score} color={signal.tone as any} variant="outlined" sx={{ borderRadius: '999px' }} />
               </Box>
             )) : (
-              <Typography>Loading soil data...</Typography>
+              <Typography>{t('dashboard.readiness.loading')}</Typography>
             )}
           </Stack>
         </Card>
@@ -454,10 +639,10 @@ const Dashboard: React.FC = () => {
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-              Explore modules
+              {t('dashboard.modules.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Navigate to a workspace and continue where you left off. Actions auto-sync across devices.
+              {t('dashboard.modules.description')}
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ flex: 2 }}>

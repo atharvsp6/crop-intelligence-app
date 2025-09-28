@@ -14,6 +14,7 @@ bcrypt
 pillow
 shap
 googletrans==4.0.0rc1
+gunicorn>=22.0.0
 
 # Real-time Market Data Dependencies
 schedule>=1.2.0

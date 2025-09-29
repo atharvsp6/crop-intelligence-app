@@ -29,5 +29,4 @@ COPY . .
 ENV PORT=8080
 EXPOSE 8080
 
-# Default command for Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app_integrated:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} app_integrated:app"]

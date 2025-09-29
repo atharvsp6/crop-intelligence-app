@@ -803,6 +803,8 @@ def predict_crop_yield_public():
         result['ai_recommendations_error'] = result.get('error') or 'Prediction failed; recommendations skipped.'
 
     result['selected_language'] = language
+    print(f"[Prediction Response] Final prediction_source: {result.get('prediction_source')}")
+    print(f"[Prediction Response] Final predicted_yield: {result.get('predicted_yield')}")
     return jsonify(result)
 
 # Training endpoint for the new model

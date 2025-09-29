@@ -1,4 +1,4 @@
-# Crop Intelligence App
+# YieldWise
 
 A comprehensive full-stack crop intelligence platform for farmers, built with Flask, React, and MongoDB integration.
 

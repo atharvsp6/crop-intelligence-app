@@ -57,6 +57,9 @@ class ColabStyleCropModel:
     # Persistence
     # ------------------------------------------------------------------
     def _load(self) -> bool:
+        print(f"[ColabModel] Checking model paths: MODEL_PATH={self.MODEL_PATH}, META_PATH={self.META_PATH}")
+        print(f"[ColabModel] Model file exists: {os.path.exists(self.MODEL_PATH)}")
+        print(f"[ColabModel] Meta file exists: {os.path.exists(self.META_PATH)}")
         if os.path.exists(self.MODEL_PATH) and os.path.exists(self.META_PATH):
             try:
                 self.model = joblib.load(self.MODEL_PATH)

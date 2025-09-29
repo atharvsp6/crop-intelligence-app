@@ -25,6 +25,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy application source
 COPY . .
 
+# Pre-train the model during Docker build to avoid runtime delays
+RUN python -c "from colab_style_predictor import colab_style_model; colab_style_model.train()" || echo "Model training failed, will use statistical fallback"
+
 # Expose the port used by Gunicorn / Cloud Run
 ENV PORT=8080
 EXPOSE 8080

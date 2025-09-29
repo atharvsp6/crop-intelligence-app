@@ -161,29 +161,43 @@ class WebSocketMarketService:
         def run_server():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            
-            # Start the WebSocket server
-            start_server = websockets.serve(
-                self.market_data_handler, 
-                host, 
-                port,
-                ping_interval=30,
-                ping_timeout=10
-            )
-            
-            # Start periodic updates
-            periodic_task = asyncio.create_task(self.start_periodic_updates())
-            
+
             self.logger.info(f"WebSocket server starting on ws://{host}:{port}")
-            
+
+            async def main():
+                server = await websockets.serve(
+                    self.market_data_handler,
+                    host,
+                    port,
+                    ping_interval=30,
+                    ping_timeout=10
+                )
+
+                periodic_task = asyncio.create_task(self.start_periodic_updates())
+
+                try:
+                    await server.wait_closed()
+                finally:
+                    periodic_task.cancel()
+                    try:
+                        await periodic_task
+                    except asyncio.CancelledError:
+                        pass
+
             try:
-                loop.run_until_complete(start_server)
-                loop.run_forever()
+                loop.run_until_complete(main())
             except Exception as e:
                 self.logger.error(f"WebSocket server error: {e}")
             finally:
-                periodic_task.cancel()
-                loop.close()
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                try:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                except Exception:
+                    pass
+                finally:
+                    loop.close()
         
         # Run in separate thread
         server_thread = threading.Thread(target=run_server, daemon=True)

@@ -51,7 +51,7 @@ class ColabStyleCropModel:
         # Whether to cap target (default False, can enable to mimic original notebook exactly)
         env_cap = os.environ.get('COLAB_CAP_TARGET', 'false').lower()
         self.CAP_TARGET = env_cap in ('1','true','yes')
-        self._loaded = False  # Add this to track if loaded
+        self._loaded = self._load()
 
     # ------------------------------------------------------------------
     # Persistence
@@ -74,7 +74,6 @@ class ColabStyleCropModel:
                 self.feature_columns = meta.get('feature_columns', [])
                 self.training_means = pd.Series(meta.get('training_means', {}))
                 self.is_trained = True
-                self._loaded = True  # Set loaded flag
                 print("[ColabModel] Loaded persisted model.")
                 return True
             except Exception as e:

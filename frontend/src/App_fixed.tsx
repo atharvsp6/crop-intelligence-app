@@ -4,7 +4,6 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 import { useAuth } from './context/AuthContext';
-import AuthPage from './components/AuthPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -177,7 +176,6 @@ function App() {
       <CssBaseline />
       <Box sx={{ display: 'flex', minHeight: '100vh' }}>
         <Routes>
-          <Route path="/auth" element={<AuthPage />} />
           <Route path="/*" element={
             <ProtectedRoute>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%' }}>

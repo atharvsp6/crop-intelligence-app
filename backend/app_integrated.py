@@ -28,7 +28,6 @@ from weather_service import WeatherService
 from dashboard_service import DashboardService
 from chatbot import crop_chatbot
 from realtime_market_service import realtime_market_service
-from websocket_market_service import websocket_market_service
 multilingual_import_error = None
 try:
     from multilingual_chatbot import MultilingualAgriChatbot, create_chatbot_routes as _create_ml_routes
@@ -160,128 +159,6 @@ YIELD_LANGUAGE_INSTRUCTIONS = {
     'ta': 'Tamil (தமிழ்) - write everything in Tamil script using Tamil vocabulary. Example: "பயிர் உற்பத்தி அதிகரிக்க..."',
     'te': 'Telugu (తెలుగు) - write everything in Telugu script using Telugu vocabulary. Example: "పంట దిగుబడి పెరుగుటకు..."'
 }
-
-FALLBACK_NUTRIENT_TARGETS = {
-    'nitrogen': 120,
-    'phosphorus': 60,
-    'potassium': 60,
-}
-
-def _safe_float(value, default: float | None = None) -> float | None:
-    try:
-        if value is None or value == '' or (isinstance(value, str) and value.strip() == ''):
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _coerce_gemini_response(raw_text: str, prediction: dict, original_payload: dict) -> tuple[dict, bool]:
-    """Attempt to parse Gemini JSON; if it fails, reshape text while keeping Gemini origin."""
-    if not raw_text or not raw_text.strip():
-        raise ValueError('Empty Gemini response text.')
-
-    try:
-        parsed = _extract_json_from_text(raw_text)
-        return parsed, False
-    except Exception as parse_err:
-        print(f"[AI Recommendations] JSON parse failed ({parse_err}); reshaping response text.")
-        structured = _generate_rule_based_recommendations(prediction, original_payload)
-        summary = raw_text.strip()
-        structured['yield_assessment'] = summary[:420]
-        structured.setdefault('notes', summary)
-        return structured, True
-
-def _generate_rule_based_recommendations(prediction: dict, original_payload: dict) -> dict:
-    crop = (original_payload.get('crop_type')
-            or original_payload.get('Crop')
-            or 'your crop')
-    crop_title = str(crop).title()
-    predicted_yield = _safe_float(prediction.get('predicted_yield'), 0.0) or 0.0
-    fertilizer = _safe_float(original_payload.get('fertilizer') or original_payload.get('Fertilizer'))
-    pesticide = _safe_float(original_payload.get('pesticide') or original_payload.get('Pesticide'))
-    area = _safe_float(original_payload.get('area') or original_payload.get('Area'))
-    rainfall = _safe_float(original_payload.get('annual_rainfall') or original_payload.get('Annual_Rainfall'))
-    nitrogen = _safe_float(original_payload.get('nitrogen') or original_payload.get('N_req_kg_per_ha'))
-    phosphorus = _safe_float(original_payload.get('phosphorus') or original_payload.get('P_req_kg_per_ha'))
-    potassium = _safe_float(original_payload.get('potassium') or original_payload.get('K_req_kg_per_ha'))
-    temperature = _safe_float(original_payload.get('temperature') or original_payload.get('Temperature_C'))
-    humidity = _safe_float(original_payload.get('humidity') or original_payload.get('Humidity_%'))
-    ph = _safe_float(original_payload.get('ph') or original_payload.get('pH'))
-
-    def _npk_gap(name: str, actual: float | None) -> str:
-        target = FALLBACK_NUTRIENT_TARGETS[name]
-        if actual is None:
-            return f"monitor {name[0].upper()} supply"
-        if actual < target * 0.85:
-            return f"increase {name[0].upper()} inputs"
-        if actual > target * 1.2:
-            return f"trim {name[0].upper()} usage"
-        return f"keep {name[0].upper()} steady"
-
-    fertilizer_note = "balance NPK and organic matter" if fertilizer is None else (
-        "split fertilizer into 2-3 doses" if fertilizer > 0 else "plan basal fertilization"
-    )
-    irrigation_hint = []
-    if rainfall is not None:
-        if rainfall < 800:
-            irrigation_hint.append("schedule drip/soaker every 5-7 days")
-        elif rainfall > 1300:
-            irrigation_hint.append("drain excess water to avoid root stress")
-    if humidity is not None and humidity > 80:
-        irrigation_hint.append("monitor fungal pressure; prefer morning irrigation")
-    if not irrigation_hint:
-        irrigation_hint.append("align irrigation with crop growth stages")
-
-    planting_hint = []
-    if temperature is not None:
-        if temperature < 20:
-            planting_hint.append("warm the seed bed or delay sowing")
-        elif temperature > 34:
-            planting_hint.append("use heat-tolerant variety and mulching")
-    planting_hint.append("maintain recommended row spacing and weed early")
-
-    improvement_hint = []
-    if predicted_yield:
-        improvement_hint.append(f"boost yield ~10% by optimising NPK and irrigation")
-    if pesticide is not None and pesticide > 0:
-        improvement_hint.append("rotate pest control modes; scout weekly")
-    improvement_hint.append("invest in soil testing and organic amendments")
-
-    cost_benefit_hint = {
-        "roi_estimate": "target 1.4x ROI by improving input efficiency",
-        "payback_period": "expect payoff within 1 season if inputs optimised",
-        "risk_factors": "watch rainfall swings, pest outbreaks, fertiliser prices"
-    }
-
-    return {
-        "yield_assessment": f"{crop_title} yield around {predicted_yield:.1f} t/ha; focus on balanced inputs and timely field care.",
-        "fertilizer_recommendations": {
-            "optimal_npk": f"{_npk_gap('nitrogen', nitrogen)}; { _npk_gap('phosphorus', phosphorus)}; { _npk_gap('potassium', potassium)}",
-            "application_schedule": fertilizer_note,
-            "organic_options": "blend FYM/compost with micronutrient-rich biofertilisers",
-            "micronutrients": "apply Zn & B foliar spray at tillering/flowering"
-        },
-        "irrigation_recommendations": {
-            "frequency": irrigation_hint[0],
-            "critical_stages": "prioritise flowering & grain filling moisture",
-            "methods": "prefer drip or furrow to save water",
-            "water_management": "mulch surface to reduce evaporation and conserve moisture"
-        },
-        "planting_recommendations": {
-            "optimal_dates": "match sowing with regional seasonal onset",
-            "variety_selection": "pick locally recommended, disease-tolerant cultivars",
-            "spacing": "keep rows uniform; thin to avoid competition",
-            "soil_prep": "deep plough; incorporate organic matter and level beds"
-        },
-        "improvement_potential": {
-            "expected_increase": improvement_hint[0] if improvement_hint else "optimise inputs for modest gains",
-            "timeline": "start with current season interventions",
-            "priority_actions": "soil test, split fertiliser doses, tighten irrigation schedule",
-            "investment_needed": "budget for micronutrients, mulching, soil health inputs"
-        },
-        "cost_benefit": cost_benefit_hint
-    }
 
 yield_recommendation_model = None
 yield_recommendation_error = None
@@ -652,27 +529,8 @@ def chat_with_bot():
         
         if not data.get('message'):
             return jsonify({'error': 'Message is required'}), 400
-
-        raw_context = data.get('context') if isinstance(data.get('context'), dict) else None
-        if raw_context:
-            summary_lines = raw_context.get('summaryLines') or []
-            recommendation_highlights = raw_context.get('recommendationHighlights') or []
-            context_payload = {
-                'summaryLines': [str(line) for line in summary_lines if str(line).strip()],
-                'recommendationHighlights': [
-                    str(item) for item in recommendation_highlights if str(item).strip()
-                ],
-            }
-        else:
-            context_payload = None
-
-        response = crop_chatbot.chat(
-            data['message'],
-            user_id,
-            context=context_payload,
-            language_hint=data.get('languageHint'),
-            prediction_ready=bool(data.get('predictionReady')),
-        )
+        
+        response = crop_chatbot.chat(data['message'], user_id)
         
         # Update user activity
         user_manager.update_user_activity(user_id, 'chatbot_interaction')
@@ -872,34 +730,17 @@ def predict_crop_yield():
     merged_payload = {**payload, **data}
 
     if result.get('success'):
-        fallback_recommendations = None
         if yield_recommendation_model:
             try:
-                recommendations, raw_text, source_tag = _generate_yield_recommendations(result, merged_payload, language)
+                recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
                 result['ai_recommendations'] = recommendations
                 result['ai_recommendations_language'] = language
-                result['ai_recommendations_source'] = source_tag
-                result['ai_recommendations_raw'] = raw_text
             except Exception as rec_err:
                 result['ai_recommendations_error'] = str(rec_err)
                 result['ai_recommendations_language'] = language
-                print(f"[AI Recommendations] Gemini generation failed, using fallback: {rec_err}")
-                try:
-                    fallback_recommendations = _generate_rule_based_recommendations(result, merged_payload)
-                except Exception as fallback_err:
-                    print(f"[AI Recommendations] Fallback generation error: {fallback_err}")
-        else:
-            if yield_recommendation_error:
-                result['ai_recommendations_error'] = yield_recommendation_error
-            try:
-                fallback_recommendations = _generate_rule_based_recommendations(result, merged_payload)
-            except Exception as fallback_err:
-                print(f"[AI Recommendations] Fallback generation error: {fallback_err}")
-
-        if not result.get('ai_recommendations') and fallback_recommendations:
-            result['ai_recommendations'] = fallback_recommendations
-            result['ai_recommendations_language'] = 'en'
-            result['ai_recommendations_source'] = 'rule_based'
+        elif yield_recommendation_error:
+            result['ai_recommendations_error'] = yield_recommendation_error
+            result['ai_recommendations_language'] = language
     else:
         result['ai_recommendations_error'] = result.get('error') or 'Prediction failed; recommendations skipped.'
 
@@ -976,23 +817,15 @@ def predict_crop_yield_public():
     print(f"[Predict Endpoint] Normalized language: {language}")
     merged_payload = {**payload, **data}
 
-    fallback_recommendations = None
-
     if result.get('success'):
         if yield_recommendation_model:
             try:
-                recommendations, _, source_tag = _generate_yield_recommendations(result, merged_payload, language)
+                recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
                 result['ai_recommendations'] = recommendations
                 result['ai_recommendations_language'] = language
-                result['ai_recommendations_source'] = source_tag
             except Exception as rec_err:
                 result['ai_recommendations_error'] = str(rec_err)
                 result['ai_recommendations_language'] = language
-                print(f"[AI Recommendations] Gemini generation failed, using fallback: {rec_err}")
-                try:
-                    fallback_recommendations = _generate_rule_based_recommendations(result, merged_payload)
-                except Exception as fallback_err:
-                    print(f"[AI Recommendations] Fallback generation error: {fallback_err}")
         elif yield_recommendation_error:
             result['ai_recommendations_error'] = yield_recommendation_error
             result['ai_recommendations_language'] = language
@@ -1140,7 +973,7 @@ def _extract_json_from_text(text: str) -> dict:
     return json.loads(snippet)
 
 
-def _generate_yield_recommendations(prediction: dict, original_payload: dict, language_code: str) -> tuple[dict, str, str]:
+def _generate_yield_recommendations(prediction: dict, original_payload: dict, language_code: str) -> dict:
     if not yield_recommendation_model:
         raise RuntimeError(yield_recommendation_error or 'Gemini recommendation model unavailable.')
 
@@ -1252,29 +1085,10 @@ Format your response strictly as JSON with these exact keys:
 Return ONLY valid JSON with no extra text. Ensure every value is in the specified language: {language_instruction}. Avoid exceeding length guidance.
 """
 
-    response = yield_recommendation_model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-
-    raw_text = ''
-    if hasattr(response, 'text') and response.text:
-        raw_text = response.text.strip()
-    elif getattr(response, 'candidates', None):
-        # Some SDK versions expose text via candidates/parts objects
-        parts: list[str] = []
-        for candidate in response.candidates:
-            content = getattr(candidate, 'content', None)
-            if content and getattr(content, 'parts', None):
-                for part in content.parts:
-                    content_text = getattr(part, 'text', None)
-                    if content_text:
-                        parts.append(content_text)
-        raw_text = '\n'.join(parts).strip()
-
-    parsed, fallback_used = _coerce_gemini_response(raw_text, prediction, original_payload)
-    source_tag = 'gemini_fallback' if fallback_used else 'gemini'
-    return parsed, raw_text, source_tag
+    response = yield_recommendation_model.generate_content(prompt)
+    raw_text = response.text.strip() if hasattr(response, 'text') else ''
+    parsed = _extract_json_from_text(raw_text)
+    return parsed, raw_text
 def _map_frontend_to_colab(d: dict) -> dict:
     mapping = {
         'crop_type': 'Crop',
@@ -1789,15 +1603,6 @@ if __name__ == '__main__':
     if not os.path.exists('.env'):
         print("Warning: .env file not found. Please create one with the required environment variables.")
         print("Check .env.example for the required variables.")
-
-    # Start WebSocket server for real-time market updates (runs in background thread)
-    try:
-        websocket_host = os.environ.get('WEBSOCKET_HOST', '0.0.0.0').strip() or '0.0.0.0'
-        websocket_port = int(os.environ.get('WEBSOCKET_PORT', '8765'))
-        websocket_market_service.start_websocket_server(host=websocket_host, port=websocket_port)
-        print(f"[WebSocket] Real-time market server running on ws://{websocket_host}:{websocket_port}")
-    except Exception as ws_err:
-        print(f"[WebSocket] ⚠️ Failed to start market data WebSocket server: {ws_err}")
 
     # Auto-train model if missing (for deployment)
     try:

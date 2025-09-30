@@ -62,6 +62,7 @@ class ColabStyleCropModel:
         print(f"[ColabModel] Meta file exists: {os.path.exists(self.META_PATH)}")
         if os.path.exists(self.MODEL_PATH) and os.path.exists(self.META_PATH):
             try:
+                import joblib
                 self.model = joblib.load(self.MODEL_PATH)
                 with open(self.META_PATH, 'r') as f:
                     meta = json.load(f)
@@ -231,18 +232,17 @@ class ColabStyleCropModel:
     # Prediction (single custom input)
     # ------------------------------------------------------------------
     def predict(self, input_dict: dict) -> dict:
+        # Lazy load model only when needed
         if not self.is_trained:
             if not self._load():
                 # Use statistical fallback prediction when model is not available
                 return self._statistical_fallback_prediction(input_dict)
         try:
             df = pd.DataFrame([input_dict])
-
             # Harmonize categorical text
             for col in ['State Name','Season','Crop']:
                 if col in df.columns and df[col].dtype=='object':
                     df[col] = df[col].str.strip().str.lower()
-
             # Apply encoders with unseen handling
             for col, encoder in self.encoders.items():
                 if col in df.columns:
@@ -252,6 +252,13 @@ class ColabStyleCropModel:
                         repl = encoder.inverse_transform([0])[0]
                         df[col] = df[col].replace(list(unseen), repl)
                     df[col] = encoder.transform(df[col])
+            # ...existing code for prediction...
+            # After prediction, unload model to free memory
+            self.model = None
+            import gc
+            gc.collect()
+            # ...existing code for returning result...
+            # (The rest of the function remains unchanged)
 
             # Feature engineering (same as training)
             if {'Temperature_C','Rainfall_mm'}.issubset(df.columns):

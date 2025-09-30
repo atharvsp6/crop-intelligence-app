@@ -88,14 +88,16 @@ class DiseaseDetector:
             print(f"Error creating sample model: {e}")
             return False
     
+
     def load_model(self):
-        """Load the disease detection model"""
+        """Load the disease detection model (lazy load)."""
         try:
             if not os.path.exists(self.model_path):
                 print("Model not found, creating sample model...")
                 if not self.create_sample_model():
                     return False
-            
+            import tensorflow as tf
+            from tensorflow import keras
             self.model = keras.models.load_model(self.model_path)
             return True
         except Exception as e:
@@ -158,19 +160,17 @@ class DiseaseDetector:
             return 0.0
     
     def predict_disease(self, image_data):
-        """Predict plant disease from image"""
+        """Predict plant disease from image (lazy load and unload model)."""
         try:
-            # Load model if not already loaded
+            # Lazy load model only when needed
             if self.model is None:
                 if not self.load_model():
                     return {
                         'success': False,
                         'error': 'Failed to load disease detection model'
                     }
-            
             # Preprocess image & estimate plant likelihood
             processed_image, plant_likelihood = self.preprocess_image(image_data)
-
             # Reject if plant likelihood too low
             if plant_likelihood < 0.12:  # threshold can be tuned
                 return {
@@ -178,33 +178,49 @@ class DiseaseDetector:
                     'error': 'Image does not appear to contain a plant. Please upload a clear plant image (leaves, stem, fruit).',
                     'plant_likelihood': plant_likelihood
                 }
-            
             # Make prediction
             predictions = self.model.predict(processed_image, verbose=0)
             predicted_class_index = np.argmax(predictions[0])
             confidence = float(predictions[0][predicted_class_index])
-            
             # Get predicted class name
             predicted_class = self.class_names[predicted_class_index]
-            
             # Extract plant type and condition
             parts = predicted_class.split('___')
             plant_type = parts[0].replace('_', ' ')
             condition = parts[1].replace('_', ' ') if len(parts) > 1 else 'Unknown'
-            
             # Get top 3 predictions
             top_3_indices = np.argsort(predictions[0])[-3:][::-1]
             top_3_predictions = [
                 {
                     'class': self.class_names[i],
                     'plant_type': self.class_names[i].split('___')[0].replace('_', ' '),
-                    'condition': self.class_names[i].split('___')[1].replace('_', ' ') if '___' in self.class_names[i] else 'Unknown',
                     'confidence': float(predictions[0][i])
                 }
                 for i in top_3_indices
             ]
-            
-            # Generate recommendations
+            # Unload model after prediction to free memory
+            try:
+                from tensorflow.keras import backend as K
+                K.clear_session()
+            except Exception:
+                pass
+            self.model = None
+            import gc
+            gc.collect()
+            return {
+                'success': True,
+                'predicted_class': predicted_class,
+                'plant_type': plant_type,
+                'condition': condition,
+                'confidence': confidence,
+                'top_3': top_3_predictions,
+                'plant_likelihood': plant_likelihood
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
             recommendations = self._get_treatment_recommendations(condition, confidence)
             
             return {

@@ -99,16 +99,10 @@ def get_public_config():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/ping', methods=['GET', 'HEAD'])
+@app.route('/ping', methods=['GET'])
 def ping():
-    """Health check endpoint for uptime monitoring (JSON)."""
-    # For HEAD requests Flask will strip the body automatically and keep headers/status.
+    """Health check endpoint for uptime monitoring."""
     return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()}), 200
-
-@app.route('/healthz', methods=['GET', 'HEAD'])
-def healthz():
-    """Ultra-lightweight plain-text health check (suitable for UptimeRobot)."""
-    return 'ok', 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 # =============================================================================
 # --- END: NEW CONFIGURATION ROUTE ---

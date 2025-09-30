@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
+import { SUPPORTED_LANGUAGES } from '../i18n';
 
 interface ForumPost {
   _id: string;
@@ -84,13 +85,7 @@ const CommunityForum: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
-  const languages = [
-    { code: 'en', name: 'English' },
-    { code: 'hi', name: 'Hindi' },
-    { code: 'es', name: 'Spanish' },
-    { code: 'fr', name: 'French' },
-    { code: 'de', name: 'German' },
-  ];
+  const languages = SUPPORTED_LANGUAGES.map(l => ({ code: l.code, name: l.nativeName || l.label }));
 
   const categories = [
     'cultivation',

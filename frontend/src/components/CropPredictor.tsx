@@ -1,7 +1,10 @@
+// CropPredictor.tsx
+
 // Clean FINAL implementation of CropPredictor. All legacy/duplicate code removed.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  AlertColor,
   Box,
   Button,
   Chip,
@@ -38,11 +41,12 @@ import {
   Language,
   HealthAndSafety,
   LightbulbCircle,
-  SmartToy,
-  CheckCircle,
+  GpsFixed,
 } from '@mui/icons-material';
 import axios from 'axios';
-import { API_BASE } from '../config';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { API_BASE } from '../config'; // Keep API_BASE, but we will fetch the token
 import {
   ResponsiveContainer,
   RadarChart,
@@ -63,6 +67,7 @@ import {
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES } from '../i18n';
+import Chatbot, { ChatbotContext } from './predictor/Chatbot';
 
 interface PredictionRequest {
   crop_type: string;
@@ -138,6 +143,7 @@ interface ExtendedPredictionResponse extends PredictionResponse {
   ai_recommendations?: AIRecommendations;
   ai_recommendations_error?: string;
   ai_recommendations_language?: string;
+  ai_recommendations_source?: 'gemini' | 'rule_based' | string;
 }
 
 const STATES = [
@@ -175,6 +181,24 @@ const CROPS = [
 ];
 
 const SEASONS = ['Kharif', 'Rabi', 'Summer', 'Whole Year'];
+
+const STATE_CODE_MAP: Record<string, string> = {
+  'in-ap': 'Andhra Pradesh',
+  'in-as': 'Assam',
+  'in-br': 'Bihar',
+  'in-gj': 'Gujarat',
+  'in-hr': 'Haryana',
+  'in-ka': 'Karnataka',
+  'in-kl': 'Kerala',
+  'in-mp': 'Madhya Pradesh',
+  'in-mh': 'Maharashtra',
+  'in-or': 'Odisha',
+  'in-pb': 'Punjab',
+  'in-rj': 'Rajasthan',
+  'in-tn': 'Tamil Nadu',
+  'in-up': 'Uttar Pradesh',
+  'in-wb': 'West Bengal',
+};
 
 const INITIAL_FORM: PredictionRequest = {
   crop_type: '',
@@ -264,64 +288,492 @@ const IDEAL_WEATHER = {
   humidity: 65,
   rainfall: 900,
 };
+const STATE_COORDINATES: Record<string, [number, number]> = {
+  'Andhra Pradesh': [79.739987, 15.9129],
+  Assam: [92.937576, 26.200604],
+  Bihar: [85.313118, 25.096074],
+  Gujarat: [71.192381, 22.258746],
+  Haryana: [76.085602, 29.058776],
+  Karnataka: [75.713888, 15.317277],
+  Kerala: [76.271083, 10.850516],
+  'Madhya Pradesh': [77.947, 23.473324],
+  Maharashtra: [75.713888, 19.75148],
+  Odisha: [85.098525, 20.951666],
+  Punjab: [75.341218, 31.14713],
+  Rajasthan: [74.217933, 27.023804],
+  'Tamil Nadu': [78.656891, 11.127123],
+  'Uttar Pradesh': [80.946166, 26.846708],
+  'West Bengal': [87.855, 22.986757],
+};
+
+const STATE_ALIASES: Record<string, string> = {
+  orissa: 'Odisha',
+  odisha: 'Odisha',
+  up: 'Uttar Pradesh',
+  'uttar pradesh': 'Uttar Pradesh',
+  uttarpradesh: 'Uttar Pradesh',
+  'uttar-pradesh': 'Uttar Pradesh',
+  mp: 'Madhya Pradesh',
+  'madhya-pradesh': 'Madhya Pradesh',
+  tn: 'Tamil Nadu',
+  tamilnadu: 'Tamil Nadu',
+  ap: 'Andhra Pradesh',
+  andhrapradesh: 'Andhra Pradesh',
+  wb: 'West Bengal',
+  westbengal: 'West Bengal',
+  maharastra: 'Maharashtra',
+};
+
+const DEFAULT_MAP_CENTER: [number, number] = [78.9629, 20.5937];
+const DEFAULT_MAP_ZOOM = 4.1;
+
+type AlertState = {
+  type: AlertColor;
+  message: string;
+};
 
 const CropPredictor: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [form, setForm] = useState<PredictionRequest>(INITIAL_FORM);
   const [prediction, setPrediction] = useState<ExtendedPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [training, setTraining] = useState(false);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [alert, setAlert] = useState<AlertState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t, i18n } = useTranslation();
+  const [tempNumbers, setTempNumbers] = useState<Record<string, string>>({});
+  const [aiRefreshing, setAiRefreshing] = useState(false);
+  const [detectingState, setDetectingState] = useState(false);
+  
+  // --- NEW STATE FOR FETCHED MAPBOX TOKEN ---
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+
   const aiSectionRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
-  const [aiRefreshing, setAiRefreshing] = useState(false);
 
-  const getLanguageLabel = useCallback((code: string) => {
-    const entry = SUPPORTED_LANGUAGES.find(lang => lang.code === code);
-    return entry?.nativeName || entry?.label || code.toUpperCase();
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const pendingCenterRef = useRef<[number, number] | null>(null);
+  
+  // --- NEW: FETCH MAPBOX TOKEN ON COMPONENT MOUNT ---
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await axios.get<{ mapboxToken: string }>(`${API_BASE}/api/config`);
+        const token = response.data?.mapboxToken;
+        if (token) {
+          setMapboxToken(token);
+        } else {
+          setMapError(t('cropPredictor.form.map.tokenMissingShort', {
+            defaultValue: 'Mapbox token not provided by server.',
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch app config:', error);
+        setMapError(t('cropPredictor.form.map.tokenMissingShort', {
+          defaultValue: 'Could not fetch map configuration from server.',
+        }));
+      }
+    };
+    fetchConfig();
+  }, [t]);
+
+
+  const getLanguageLabel = useCallback(
+    (code: string) => {
+      const found = SUPPORTED_LANGUAGES.find(lang => lang.code === code);
+      return found?.nativeName || found?.label || code.toUpperCase();
+    },
+    [],
+  );
+
+  const toggleSection = useCallback((sectionKey: string) => {
+    setExpandedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }));
   }, []);
 
-  useEffect(() => {
-    if (prediction?.success && prediction.ai_recommendations && aiSectionRef.current) {
-      const timeoutId = window.setTimeout(() => {
-        aiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 120);
-      return () => window.clearTimeout(timeoutId);
+  const updateField = useCallback(
+    (key: keyof PredictionRequest, value: PredictionRequest[keyof PredictionRequest]) => {
+      setForm(prev => ({
+        ...prev,
+        [key]: value,
+      }));
+    },
+    [],
+  );
+
+  const matchStateName = useCallback((raw?: string | null) => {
+    if (!raw) return undefined;
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) return undefined;
+
+    if (STATE_CODE_MAP[normalized]) {
+      return STATE_CODE_MAP[normalized];
     }
-    return undefined;
-  }, [prediction]);
 
-  const toggleSection = (key: string) => {
-    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    const aliasDirect = STATE_ALIASES[normalized];
+    if (aliasDirect) return aliasDirect;
 
-  const setField = <K extends keyof PredictionRequest>(key: K, value: PredictionRequest[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }));
-  };
+    const collapsed = normalized.replace(/\s+/g, ' ');
+    if (STATE_ALIASES[collapsed]) {
+      return STATE_ALIASES[collapsed];
+    }
 
-  const handleSelectChange = (key: keyof PredictionRequest) => (event: SelectChangeEvent) => {
-    setField(key, event.target.value as PredictionRequest[typeof key]);
-  };
+    const direct = STATES.find(state => state.toLowerCase() === normalized);
+    if (direct) return direct;
+
+    const loose = STATES.find(state => normalized.includes(state.toLowerCase()));
+    return loose;
+  }, []);
+
+  const updateMapLocation = useCallback(
+    (lng: number, lat: number, options: { animate?: boolean; zoom?: number } = {}) => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded()) {
+        pendingCenterRef.current = [lng, lat];
+        return;
+      }
+
+      if (!markerRef.current) {
+        markerRef.current = new mapboxgl.Marker({ color: '#2E7D32' }).setLngLat([lng, lat]).addTo(map);
+      } else {
+        markerRef.current.setLngLat([lng, lat]);
+      }
+
+      const targetZoom = options.zoom ?? Math.max(map.getZoom(), 5);
+      if (options.animate === false) {
+        map.jumpTo({ center: [lng, lat], zoom: targetZoom });
+      } else {
+        map.easeTo({ center: [lng, lat], zoom: targetZoom, duration: 800 });
+      }
+    },
+    [],
+  );
+
+  const syncStateSelection = useCallback(
+    (stateName: string) => {
+      const coords = STATE_COORDINATES[stateName];
+      if (!coords) return;
+      updateMapLocation(coords[0], coords[1]);
+    },
+    [updateMapLocation],
+  );
+
+  const handleSelectChange =
+    (key: keyof PredictionRequest) => (event: SelectChangeEvent<unknown>) => {
+      const value = event.target.value as PredictionRequest[typeof key];
+      updateField(key, value);
+      if (key === 'state' && typeof value === 'string') {
+        setMapError(null);
+        syncStateSelection(value);
+      }
+    };
 
   const handleNumberChange = (key: keyof PredictionRequest) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Number(event.target.value);
-    setField(key, (Number.isNaN(value) ? 0 : value) as PredictionRequest[typeof key]);
+    const raw = event.target.value;
+    setTempNumbers(prev => ({ ...prev, [key]: raw }));
+    if (raw === '' || raw === '-' || raw === '.') {
+      return;
+    }
+    const num = Number(raw);
+    if (!Number.isNaN(num)) {
+      updateField(key, num as PredictionRequest[typeof key]);
+    }
+  };
+
+  const resolveNumberValue = (key: keyof PredictionRequest) => {
+    if (tempNumbers[key] !== undefined) return tempNumbers[key];
+    const current = form[key] as unknown as number;
+    return current === 0 ? '' : String(current);
   };
 
   const handleSliderChange = (key: SliderKey) => (_: Event, value: number | number[]) => {
     const numeric = Array.isArray(value) ? value[0] : value;
-    setField(key, Number(numeric) as PredictionRequest[typeof key]);
+    updateField(key, Number(numeric) as PredictionRequest[typeof key]);
   };
 
   const handleReset = () => {
     setForm(INITIAL_FORM);
+    setTempNumbers({});
     setPrediction(null);
     setAlert(null);
     setExpandedSections({});
+    setMapError(null);
+    if (markerRef.current) {
+      markerRef.current.remove();
+      markerRef.current = null;
+    }
+    if (mapRef.current && mapRef.current.isStyleLoaded()) {
+      mapRef.current.easeTo({ center: DEFAULT_MAP_CENTER, zoom: DEFAULT_MAP_ZOOM, duration: 600 });
+    }
   };
+
+  const fallbackStateLookup = useCallback(
+    async (latitude: number, longitude: number) => {
+      try {
+        const bdcResp = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+        );
+        const bdcJson = await bdcResp.json();
+        const candidate =
+          bdcJson.principalSubdivision ||
+          bdcJson.locality ||
+          bdcJson.city ||
+          bdcJson?.localityInfo?.administrative?.[0]?.name;
+        const matched = matchStateName(candidate);
+        if (matched) {
+          return matched;
+        }
+      } catch (error) {
+        console.warn('BigDataCloud reverse geocode failed', error);
+      }
+
+      try {
+        const nomResp = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=5&addressdetails=1`,
+          {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': 'CropIntelligenceApp/1.0 (educational use)',
+            },
+          },
+        );
+        const nomJson = await nomResp.json();
+        const fallback =
+          nomJson.address?.state || nomJson.address?.region || nomJson.address?.state_district;
+        const matched = matchStateName(fallback);
+        if (matched) {
+          return matched;
+        }
+      } catch (error) {
+        console.warn('Nominatim reverse geocode failed', error);
+      }
+
+      return undefined;
+    },
+    [matchStateName],
+  );
+
+  const reverseGeocodeState = useCallback(
+    async (lng: number, lat: number) => {
+      if (!mapboxToken) return undefined;
+
+      try {
+        const params = new URLSearchParams({
+          access_token: mapboxToken,
+          types: 'region',
+          country: 'IN',
+          language: 'en',
+          limit: '5',
+        });
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?${params.toString()}`,
+        );
+        const data = await response.json();
+        const features: any[] = Array.isArray(data?.features) ? data.features : [];
+        for (const feature of features) {
+          const candidates: string[] = [];
+          const pushName = (value?: string) => {
+            if (typeof value === 'string') {
+              candidates.push(value);
+            }
+          };
+
+          pushName(feature.text);
+          if (typeof feature.place_name === 'string') {
+            feature.place_name.split(',').forEach((part: string) => pushName(part.trim()));
+          }
+
+          if (Array.isArray(feature.context)) {
+            feature.context.forEach((ctx: any) => {
+              pushName(ctx?.text);
+              pushName(ctx?.short_code);
+            });
+          }
+
+          if (typeof feature?.properties?.short_code === 'string') {
+            pushName(feature.properties.short_code);
+          }
+
+          for (const candidate of candidates) {
+            const lower = candidate.toLowerCase();
+            if (STATE_CODE_MAP[lower]) {
+              return STATE_CODE_MAP[lower];
+            }
+            const matched = matchStateName(candidate);
+            if (matched) {
+              return matched;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Mapbox reverse geocode failed', error);
+      }
+
+      return undefined;
+    },
+    [matchStateName, mapboxToken],
+  );
+
+  const detectState = useCallback(async () => {
+    if (detectingState) return;
+
+    if (!mapboxToken) {
+        const message = t('cropPredictor.form.map.tokenMissing', {
+            defaultValue: 'Map functionality is disabled. The server did not provide a key.',
+        });
+        setMapError(message);
+        setAlert({ type: 'error', message });
+        return;
+    }
+
+    if (!('geolocation' in navigator)) {
+      const message = t('cropPredictor.form.map.noGeolocation', {
+        defaultValue: 'Geolocation is not supported in this browser. Please select your state manually.',
+      });
+      setMapError(message);
+      setAlert({ type: 'error', message });
+      return;
+    }
+
+    setDetectingState(true);
+    setMapError(null);
+
+    try {
+      const position: GeolocationPosition = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+      const { latitude, longitude } = position.coords;
+
+      updateMapLocation(longitude, latitude);
+
+      const primary = await reverseGeocodeState(longitude, latitude);
+      const fallback = primary ?? (await fallbackStateLookup(latitude, longitude));
+
+      if (fallback) {
+        updateField('state', fallback as PredictionRequest['state']);
+        setAlert({
+          type: 'success',
+          message: t('cropPredictor.form.map.detectedState', {
+            defaultValue: 'Detected state: {{state}}',
+            state: fallback,
+          }),
+        });
+      } else {
+        const message = t('cropPredictor.form.map.detectFailed', {
+          defaultValue: 'Could not detect your state automatically. Please choose it manually.',
+        });
+        setMapError(message);
+        setAlert({ type: 'error', message });
+      }
+    } catch (error: any) {
+      let message = t('cropPredictor.form.map.detectError', {
+        defaultValue: 'Failed to access your location.',
+      });
+      if (error?.code === 1) {
+        message = t('cropPredictor.form.map.permissionDenied', {
+          defaultValue: 'Location permission denied. Please select your state manually.',
+        });
+      } else if (error?.code === 2) {
+        message = t('cropPredictor.form.map.positionUnavailable', {
+          defaultValue: 'Location unavailable. Try again later.',
+        });
+      } else if (error?.code === 3) {
+        message = t('cropPredictor.form.map.timeout', {
+          defaultValue: 'Location request timed out. Try again.',
+        });
+      }
+      setMapError(message);
+      setAlert({ type: 'error', message });
+    } finally {
+      setDetectingState(false);
+    }
+  }, [detectingState, fallbackStateLookup, reverseGeocodeState, t, updateField, updateMapLocation, mapboxToken]);
+
+  const handleMapClick = useCallback(
+    async (event: mapboxgl.MapMouseEvent & mapboxgl.EventData) => {
+      const { lng, lat } = event.lngLat;
+      updateMapLocation(lng, lat);
+
+      const matched =
+        (await reverseGeocodeState(lng, lat)) ?? (await fallbackStateLookup(lat, lng));
+
+      if (matched) {
+        const alreadySelected = form.state === matched;
+        updateField('state', matched as PredictionRequest['state']);
+        setMapError(null);
+        if (!alreadySelected) {
+          setAlert({
+            type: 'success',
+            message: t('cropPredictor.form.map.mapSelection', {
+              defaultValue: 'Selected {{state}} from the map.',
+              state: matched,
+            }),
+          });
+        }
+      } else {
+        const message = t('cropPredictor.form.map.mapSelectionFailed', {
+          defaultValue: 'Could not map that location to a state. Try zooming in or clicking within India.',
+        });
+        setMapError(message);
+        setAlert({ type: 'warning', message });
+      }
+    },
+    [fallbackStateLookup, form.state, reverseGeocodeState, t, updateField, updateMapLocation],
+  );
+  
+  // --- MODIFIED MAP INITIALIZATION EFFECT ---
+  useEffect(() => {
+    // Wait for the token to be fetched before trying to initialize the map
+    if (!mapboxToken || !mapContainerRef.current || mapRef.current) {
+      return;
+    }
+
+    mapboxgl.accessToken = mapboxToken;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
+
+    const handleLoad = () => {
+      setMapError(null);
+      if (pendingCenterRef.current) {
+        const [lng, lat] = pendingCenterRef.current;
+        pendingCenterRef.current = null;
+        updateMapLocation(lng, lat, { animate: false });
+      }
+    };
+
+    map.on('load', handleLoad);
+    map.on('click', handleMapClick);
+
+    mapRef.current = map;
+
+    return () => {
+      map.off('load', handleLoad);
+      map.off('click', handleMapClick);
+      map.remove();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+  }, [handleMapClick, updateMapLocation, mapboxToken]); // Dependency array now includes mapboxToken
+
+  useEffect(() => {
+    if (form.state) {
+      syncStateSelection(form.state);
+    }
+  }, [form.state, syncStateSelection]);
 
   const disabled = loading || training || !form.crop_type || !form.state || !form.season;
 
@@ -363,6 +815,103 @@ const CropPredictor: React.FC = () => {
     if (form.fertilizer > 700000) tips.push(t('cropPredictor.tips.fertilizerHigh'));
     return tips;
   }, [form, t]);
+
+  const chatbotContext = useMemo<ChatbotContext | null>(() => {
+    if (!prediction?.success) {
+      return null;
+    }
+
+    const summaryLines: string[] = [];
+    const yieldUnit = prediction.yield_unit || 'ton/ha';
+    const locationSummary = [
+      form.crop_type && `Crop: ${form.crop_type}`,
+      form.season && `Season: ${form.season}`,
+      form.state && `State: ${form.state}`,
+    ]
+      .filter(Boolean)
+      .join(' • ');
+
+    if (locationSummary) {
+      summaryLines.push(locationSummary);
+    }
+
+    if (form.area) {
+      summaryLines.push(`Field area: ${form.area} ha`);
+    }
+
+    if (typeof prediction.predicted_yield === 'number') {
+      summaryLines.push(`Predicted yield: ${prediction.predicted_yield.toFixed(2)} ${yieldUnit}`);
+    }
+
+    if (prediction.confidence_interval) {
+      summaryLines.push(
+        `Expected range: ${prediction.confidence_interval.lower.toFixed(2)} - ${prediction.confidence_interval.upper.toFixed(2)} ${yieldUnit}`,
+      );
+    }
+
+    if (typeof prediction.model_confidence === 'number') {
+      summaryLines.push(`Model confidence: ${(prediction.model_confidence * 100).toFixed(1)}%`);
+    }
+
+    summaryLines.push(
+      `Soil nutrients (kg/ha): N ${form.nitrogen}, P ${form.phosphorus}, K ${form.potassium}`,
+    );
+    summaryLines.push(
+      `Inputs used: fertiliser ${form.fertilizer} kg/ha, pesticide ${form.pesticide} kg/ha`,
+    );
+    summaryLines.push(
+      `Weather assumptions: ${form.temperature}°C temp, ${form.humidity}% humidity, ${form.rainfall} mm rainfall, pH ${form.ph}`,
+    );
+
+    const recommendationSet = new Set<string>();
+    const addRecommendation = (value?: string) => {
+      if (!value) return;
+      const trimmed = value.trim();
+      if (trimmed) {
+        recommendationSet.add(trimmed);
+      }
+    };
+
+    if (prediction.ai_recommendations) {
+      const rec = prediction.ai_recommendations;
+      addRecommendation(rec.yield_assessment);
+
+      const allNested = [
+        rec.fertilizer_recommendations?.optimal_npk,
+        rec.fertilizer_recommendations?.application_schedule,
+        rec.fertilizer_recommendations?.organic_options,
+        rec.fertilizer_recommendations?.micronutrients,
+        rec.irrigation_recommendations?.frequency,
+        rec.irrigation_recommendations?.critical_stages,
+        rec.irrigation_recommendations?.methods,
+        rec.irrigation_recommendations?.water_management,
+        rec.planting_recommendations?.optimal_dates,
+        rec.planting_recommendations?.variety_selection,
+        rec.planting_recommendations?.spacing,
+        rec.planting_recommendations?.soil_prep,
+        rec.improvement_potential?.expected_increase,
+        rec.improvement_potential?.timeline,
+        rec.improvement_potential?.priority_actions,
+        rec.improvement_potential?.investment_needed,
+        rec.cost_benefit?.roi_estimate,
+        rec.cost_benefit?.payback_period,
+        rec.cost_benefit?.risk_factors,
+      ];
+
+      allNested.forEach(addRecommendation);
+    }
+
+    computedTips.forEach(addRecommendation);
+
+    const trimmedSummary = summaryLines.filter(Boolean).slice(0, 8);
+    const recommendationHighlights = Array.from(recommendationSet).slice(0, 12);
+
+    return {
+      summaryLines: trimmedSummary,
+      recommendationHighlights,
+      languageHint: prediction.ai_recommendations_language,
+    };
+  }, [computedTips, form, prediction]);
 
   const requestPrediction = useCallback(
     async (
@@ -615,6 +1164,63 @@ const CropPredictor: React.FC = () => {
                     </Typography>
                   </Box>
 
+                  {mapboxToken ? (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        backgroundColor: 'rgba(76, 175, 80, 0.04)',
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                      >
+                        <Typography variant="subtitle2" color="text.primary" fontWeight={600}>
+                          {t('cropPredictor.form.map.title', {
+                            defaultValue: 'Select state on the map (optional)',
+                          })}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('cropPredictor.form.map.subtitle', {
+                            defaultValue:
+                              'Click on the map to update the state, or use the locator button.',
+                          })}
+                        </Typography>
+                      </Stack>
+                      <Box
+                        ref={mapContainerRef}
+                        sx={{
+                          mt: 2,
+                          height: { xs: 220, sm: 260 },
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          position: 'relative',
+                          '& .mapboxgl-canvas': { width: '100%', height: '100%' },
+                          '& .mapboxgl-control-container': { fontFamily: 'inherit' },
+                        }}
+                      />
+                      {mapError && (
+                        <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                          {mapError}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    <Alert severity="info" variant="outlined" sx={{ mt: 1 }}>
+                      {mapError ||
+                        t('cropPredictor.form.map.tokenMissingShort', {
+                          defaultValue:
+                            'Interactive map unavailable. Provide MAPBOX_API_KEY to enable it.',
+                        })}
+                    </Alert>
+                  )}
+
                   <Box
                     sx={{
                       display: 'grid',
@@ -638,17 +1244,33 @@ const CropPredictor: React.FC = () => {
                     </FormControl>
                     <FormControl fullWidth>
                       <InputLabel>{t('cropPredictor.form.fields.state')}</InputLabel>
-                      <Select
-                        label={t('cropPredictor.form.fields.state')}
-                        value={form.state}
-                        onChange={handleSelectChange('state')}
-                      >
-                        {STATES.map(state => (
-                          <MenuItem key={state} value={state}>
-                            {state}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                      <Box sx={{ position: 'relative' }}>
+                        <Select
+                          label={t('cropPredictor.form.fields.state')}
+                          value={form.state}
+                          onChange={handleSelectChange('state')}
+                          fullWidth
+                        >
+                          {STATES.map(state => (
+                            <MenuItem key={state} value={state}>
+                              {state}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        <MuiTooltip title={detectingState ? t('common.loading') : t('cropPredictor.form.detectState', 'Detect state from location')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={detectState}
+                              disabled={detectingState || !mapboxToken}
+                              sx={{ position: 'absolute', top: 6, right: 6, zIndex: 2 }}
+                              aria-label="Detect state from current location"
+                            >
+                              {detectingState ? <CircularProgress size={18} /> : <GpsFixed fontSize="small" />}
+                            </IconButton>
+                          </span>
+                        </MuiTooltip>
+                      </Box>
                     </FormControl>
                     <FormControl fullWidth>
                       <InputLabel>{t('cropPredictor.form.fields.season')}</InputLabel>
@@ -667,36 +1289,41 @@ const CropPredictor: React.FC = () => {
                     <TextField
                       label={t('cropPredictor.form.fields.year')}
                       type="number"
-                      value={form.year}
+                      value={resolveNumberValue('year')}
                       onChange={handleNumberChange('year')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, year: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">yr</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.area')}
                       type="number"
-                      value={form.area}
+                      value={resolveNumberValue('area')}
                       onChange={handleNumberChange('area')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, area: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">ha</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.annualRainfall')}
                       type="number"
-                      value={form.annual_rainfall}
+                      value={resolveNumberValue('annual_rainfall')}
                       onChange={handleNumberChange('annual_rainfall')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, annual_rainfall: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">mm</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.fertilizer')}
                       type="number"
-                      value={form.fertilizer}
+                      value={resolveNumberValue('fertilizer')}
                       onChange={handleNumberChange('fertilizer')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, fertilizer: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">kg/ha</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.pesticide')}
                       type="number"
-                      value={form.pesticide}
+                      value={resolveNumberValue('pesticide')}
                       onChange={handleNumberChange('pesticide')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, pesticide: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">kg/ha</InputAdornment> }}
                     />
                   </Box>
@@ -711,22 +1338,25 @@ const CropPredictor: React.FC = () => {
                     <TextField
                       label={t('cropPredictor.form.fields.nitrogen')}
                       type="number"
-                      value={form.nitrogen}
+                      value={resolveNumberValue('nitrogen')}
                       onChange={handleNumberChange('nitrogen')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, nitrogen: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">kg/ha</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.phosphorus')}
                       type="number"
-                      value={form.phosphorus}
+                      value={resolveNumberValue('phosphorus')}
                       onChange={handleNumberChange('phosphorus')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, phosphorus: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">kg/ha</InputAdornment> }}
                     />
                     <TextField
                       label={t('cropPredictor.form.fields.potassium')}
                       type="number"
-                      value={form.potassium}
+                      value={resolveNumberValue('potassium')}
                       onChange={handleNumberChange('potassium')}
+                      onBlur={() => setTempNumbers(prev => ({ ...prev, potassium: undefined as unknown as string }))}
                       InputProps={{ endAdornment: <InputAdornment position="end">kg/ha</InputAdornment> }}
                     />
                   </Box>
@@ -837,6 +1467,19 @@ const CropPredictor: React.FC = () => {
                           lang: getLanguageLabel(prediction.ai_recommendations_language),
                         })}
                         sx={{ bgcolor: 'rgba(76,175,80,0.12)' }}
+                      />
+                    )}
+                    {prediction.ai_recommendations_source && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        color={prediction.ai_recommendations_source.startsWith('gemini') ? 'secondary' : 'warning'}
+                        label={
+                          prediction.ai_recommendations_source.startsWith('gemini')
+                            ? t('cropPredictor.results.aiSourceGemini', { defaultValue: 'Gemini AI insights' })
+                            : t('cropPredictor.results.aiSourceFallback', { defaultValue: 'Rule-based guidance' })
+                        }
+                        sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#F1F8E9' }}
                       />
                     )}
                     {aiRefreshing && (
@@ -1142,70 +1785,10 @@ const CropPredictor: React.FC = () => {
                   )}
                 </Paper>
 
-                <Paper elevation={3} sx={{ p: { xs: 3, md: 4 }, borderRadius: 3 }}>
-                  <Typography variant="h6" fontWeight={600} color="primary.dark" gutterBottom>
-                    {t('cropPredictor.snapshot.title')}
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gap: 2,
-                      gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-                    }}
-                  >
-                    <Box sx={{ height: 260 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart data={nutrientData}>
-                          <PolarGrid stroke="#cfd8dc" />
-                          <PolarAngleAxis dataKey="name" stroke="#4E342E" />
-                          <PolarRadiusAxis angle={90} domain={[0, 150]} tick={{ fill: '#6D4C41', fontSize: 11 }} />
-                          <Radar
-                            name={t('cropPredictor.snapshot.nutrientActual')}
-                            dataKey="actual"
-                            stroke="#2E7D32"
-                            fill="#2E7D32"
-                            fillOpacity={0.5}
-                          />
-                          <Radar
-                            name={t('cropPredictor.snapshot.nutrientIdeal')}
-                            dataKey="ideal"
-                            stroke="#FFB300"
-                            fill="#FFB300"
-                            fillOpacity={0.2}
-                          />
-                          <Legend />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </Box>
-                    <Box sx={{ height: 260 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={weatherData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#CFD8DC" />
-                          <XAxis dataKey="metric" tick={{ fill: '#37474F' }} />
-                          <YAxis tick={{ fill: '#37474F' }} />
-                          <RechartsTooltip />
-                          <Area
-                            type="monotone"
-                            dataKey="ideal"
-                            stroke="#FFB300"
-                            fill="#FFE082"
-                            strokeWidth={2}
-                            name={t('cropPredictor.snapshot.weatherIdeal')}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="actual"
-                            stroke="#2E7D32"
-                            fill="#A5D6A7"
-                            strokeWidth={3}
-                            name={t('cropPredictor.snapshot.weatherActual')}
-                          />
-                          <Legend />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </Box>
-                  </Box>
-                </Paper>
+                <Chatbot
+                  context={chatbotContext}
+                  isPredictionReady={!!prediction?.success}
+                />
 
                 {featureImportance.length > 0 && (
                   <Paper elevation={3} sx={{ p: { xs: 3, md: 4 }, borderRadius: 3 }}>

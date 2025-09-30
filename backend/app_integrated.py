@@ -1,3 +1,5 @@
+# app_integrated.py
+
 from flask import Flask, request, jsonify
 import sys, os
 import json
@@ -87,6 +89,27 @@ weather_service = WeatherService()
 dashboard_service = DashboardService()
 
 # =============================================================================
+# --- START: NEW CONFIGURATION ROUTE ---
+# This new route will provide public API keys to the frontend.
+# =============================================================================
+
+@app.route('/api/config', methods=['GET'])
+def get_public_config():
+    """Provides public keys and configuration needed by the frontend."""
+    try:
+        return jsonify({
+            'success': True,
+            'mapboxToken': os.environ.get('MAPBOX_API_KEY')
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# =============================================================================
+# --- END: NEW CONFIGURATION ROUTE ---
+# =============================================================================
+
+
+# =============================================================================
 # MULTILINGUAL CHATBOT INTEGRATION (optional)
 # =============================================================================
 multilingual_chatbot = None
@@ -125,7 +148,7 @@ YIELD_LANGUAGE_NAMES = {
 YIELD_LANGUAGE_INSTRUCTIONS = {
     'en': 'English',
     'hi': 'Hindi (हिन्दी) - write everything in Devanagari script using Hindi vocabulary. Example: "फसल की उपज बढ़ाने के लिए..."',
-    'bn': 'Bengali (বাংলা) - write everything in Bengali script using Bengali vocabulary. Example: "ফসলের ফলন বৃদ্ধির জন্য..."', 
+    'bn': 'Bengali (বাংলা) - write everything in Bengali script using Bengali vocabulary. Example: "ফসলের ফলন বৃদ্ধির জন্য..."',
     'mr': 'Marathi (मराठी) - write everything in Devanagari script using Marathi vocabulary. Example: "पिकाचे उत्पादन वाढवण्यासाठी..."',
     'ta': 'Tamil (தமிழ்) - write everything in Tamil script using Tamil vocabulary. Example: "பயிர் உற்பத்தி அதிகரிக்க..."',
     'te': 'Telugu (తెలుగు) - write everything in Telugu script using Telugu vocabulary. Example: "పంట దిగుబడి పెరుగుటకు..."'
@@ -993,7 +1016,7 @@ def setup_deployment_model():
     try:
         if colab_style_model.is_trained:
             return jsonify({
-                'success': True, 
+                'success': True,
                 'message': 'Model already trained and ready',
                 'status': 'ready',
                 'meta': colab_style_model.get_meta()
@@ -1004,21 +1027,21 @@ def setup_deployment_model():
         
         if ok:
             return jsonify({
-                'success': True, 
+                'success': True,
                 'message': 'Model trained successfully for deployment',
                 'status': 'trained',
                 'meta': colab_style_model.get_meta()
             })
         else:
             return jsonify({
-                'success': False, 
+                'success': False,
                 'message': 'Model training failed - using statistical fallback',
                 'status': 'fallback_mode'
             })
             
     except Exception as e:
         return jsonify({
-            'success': False, 
+            'success': False,
             'error': str(e),
             'message': 'Setup failed - using statistical fallback',
             'status': 'fallback_mode'
@@ -1702,7 +1725,7 @@ def health_check():
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({
-        'message': 'AgroSmart API - Comprehensive Agricultural Intelligence Platform',
+        'message': 'YieldWise API - Comprehensive Agricultural Intelligence Platform',
         'version': '2.0.0',
         'features': [
             'User Authentication & Profiles',
@@ -1716,7 +1739,7 @@ def home():
         ],
         'endpoints': {
             'auth': '/api/auth/*',
-            'dashboard': '/api/dashboard/*', 
+            'dashboard': '/api/dashboard/*',
             'weather': '/api/weather/*',
             'chatbot': '/api/chatbot/*',
             'prediction': '/api/predict-crop',

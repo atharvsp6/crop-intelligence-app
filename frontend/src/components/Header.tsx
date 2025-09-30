@@ -101,7 +101,11 @@ const Header: React.FC<HeaderProps> = ({
         <IconButton
           edge="start"
           aria-label="Toggle navigation"
-          onClick={onSidebarToggle}
+          onClick={() => {
+            try { onSidebarToggle(); } catch (e) { /* noop */ }
+          }}
+          aria-expanded={open ? 'true' : 'false'}
+          aria-controls="main-navigation"
           sx={{
             width: 46,
             height: 46,

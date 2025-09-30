@@ -104,6 +104,11 @@ def get_public_config():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/ping', methods=['GET'])
+def ping():
+    """Health check endpoint for uptime monitoring."""
+    return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()}), 200
+
 # =============================================================================
 # --- END: NEW CONFIGURATION ROUTE ---
 # =============================================================================

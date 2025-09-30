@@ -25,7 +25,7 @@ class DiseaseDetector:
             'Tomato___Leaf_Mold',
             'Tomato___healthy'
         ]
-        self.model_path = '../model/plant_disease_model.h5'
+        self.model_path = os.path.join(os.path.dirname(__file__), '..', 'model', 'plant_disease_model.h5')
         self.confidence_threshold = 0.7
         
     def create_sample_model(self):

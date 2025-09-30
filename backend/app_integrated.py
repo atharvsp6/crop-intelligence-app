@@ -72,12 +72,11 @@ if custom_origins:
 else:
     allowed_origins = default_origins
 
+jwt = JWTManager(app)
+
+# Apply CORS globally for all routes, using allowed_origins for flexibility
 from flask_cors import CORS
-# Allow both Vercel and localhost for dev, and apply to all /api/* routes
-CORS(app, resources={r"/api/*": {"origins": [
-    "https://crop-intelligence-app.vercel.app",
-    "http://localhost:3000"
-]}}, supports_credentials=True)
+CORS(app, origins=allowed_origins + ["https://crop-intelligence-app.vercel.app"], supports_credentials=True)
 jwt = JWTManager(app)
 
 # Initialize services

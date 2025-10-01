@@ -72,10 +72,57 @@ else:
     allowed_origins = default_origins
 
 from flask_cors import CORS
-# Apply CORS globally for all routes with allowed origins
-CORS(app, origins=allowed_origins + [
-    "https://crop-intelligence-app.vercel.app"
-], supports_credentials=True)
+
+# Normalize origins (trim trailing slashes) and ensure production domains are included
+def _normalize_origin(origin: str) -> str:
+    if not origin:
+        return origin
+    return origin.rstrip('/')
+
+allowed_origin_set = {
+    _normalize_origin(origin)
+    for origin in allowed_origins + [
+        "https://crop-intelligence-app.vercel.app",
+        "https://www.crop-intelligence-app.vercel.app"
+    ]
+    if origin
+}
+
+# Ensure Vercel preview domains are also allowed if provided via env (comma separated)
+preview_origins = os.environ.get("VERCEL_PREVIEW_ORIGINS")
+if preview_origins:
+    for preview_origin in preview_origins.split(','):
+        normalized = _normalize_origin(preview_origin.strip())
+        if normalized:
+            allowed_origin_set.add(normalized)
+
+
+# Build CORS config to explicitly allow origins and headers for preflight requests
+sorted_origins = sorted([origin for origin in allowed_origin_set if origin])
+cors_config = {
+    r"/*": {
+        "origins": sorted_origins,
+        "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        "allow_headers": [
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ],
+        "expose_headers": [
+            "Content-Type",
+            "Authorization"
+        ],
+        "supports_credentials": True
+    }
+}
+
+CORS(
+    app,
+    resources=cors_config,
+    supports_credentials=True
+)
 jwt = JWTManager(app)
 
 # Initialize services

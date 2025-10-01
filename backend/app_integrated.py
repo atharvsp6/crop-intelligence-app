@@ -71,7 +71,11 @@ if custom_origins:
 else:
     allowed_origins = default_origins
 
+jwt = JWTManager(app)
+
+# Apply CORS globally for all routes, using allowed_origins for flexibility
 from flask_cors import CORS
+<<<<<<< HEAD
 
 # Normalize origins (trim trailing slashes) and ensure production domains are included
 def _normalize_origin(origin: str) -> str:
@@ -123,6 +127,9 @@ CORS(
     resources=cors_config,
     supports_credentials=True
 )
+=======
+CORS(app, origins=allowed_origins + ["https://crop-intelligence-app.vercel.app"], supports_credentials=True)
+>>>>>>> parent of 6e05a24 (Revert "fixing changes")
 jwt = JWTManager(app)
 
 # Initialize services

@@ -46,7 +46,7 @@ MAPBOX_API_KEY=pk.eyJ1IjoiYXRoYXJ2c3AiLCJhIjoiY21kbjlwZGtnMWl4ODJsc2ZqcDR5cHVnaC
    - Railway should auto-detect Python and use the Procfile
    - If needed, manually set:
      - Build Command: `pip install -r requirements.txt`
-     - Start Command: `gunicorn -w 1 --timeout 120 -b 0.0.0.0:$PORT app_integrated:app`
+     - Start Command: `gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT app_integrated:app`
 
 4. **Add Environment Variables:**
    - In Railway dashboard, go to your service
@@ -74,15 +74,15 @@ MAPBOX_API_KEY=pk.eyJ1IjoiYXRoYXJ2c3AiLCJhIjoiY21kbjlwZGtnMWl4ODJsc2ZqcDR5cHVnaC
 - `railway.json` - Railway-specific configuration
 - `requirements.txt` - Already exists with all dependencies including gunicorn
 
-## Resource Optimization for Free Tier
+## Resource Optimization for 1GB RAM
 
 Your backend is configured with:
-- 1 worker (minimal memory usage)
+- 2 workers (good balance for 1GB RAM)
 - 120s timeout (for ML model predictions)
 - Lazy model loading (models load on-demand)
 - Memory cleanup after predictions
 
-This should work within Railway's free tier limits (512MB RAM).
+This configuration provides better concurrency while staying within Railway's 1GB RAM limit.
 
 ## Troubleshooting
 

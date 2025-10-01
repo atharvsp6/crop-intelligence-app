@@ -28,8 +28,8 @@ COPY . .
 # Pre-train the model during Docker build to avoid runtime delays
 RUN python -c "from colab_style_predictor import colab_style_model; colab_style_model.train()" || echo "Model training failed, will use statistical fallback"
 
-# Expose the port used by Gunicorn / Cloud Run
-ENV PORT=8080
+# Expose port (Railway will set PORT via environment variable)
 EXPOSE 8080
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} app_integrated:app"]
+# Use Gunicorn with proper configuration for Railway
+CMD gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT app_integrated:app

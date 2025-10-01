@@ -93,6 +93,6 @@ If deployment fails:
 4. Check that gunicorn is in requirements.txt
 5. Make sure the Procfile exists in the backend folder
 
-## Health Check
+## Health Check (Optional)
 
-Your backend has a health check endpoint at `/ping` that Railway will use to monitor the service.
+Previously we exposed `/ping` for Railway’s health checks. If you want Railway to keep polling it, add `"healthcheckPath": "/ping"` and `"healthcheckTimeout": 300` back into `railway.json`. Otherwise Railway will rely on process exit codes only.

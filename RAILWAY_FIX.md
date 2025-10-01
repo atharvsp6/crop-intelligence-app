@@ -44,3 +44,7 @@ sh -c "exec gunicorn -w ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-120
 ```
 
 This ensures the `PORT` Railway assigns is expanded correctly even when no default shell is provided by the orchestrator.
+
+### When health checks get in the way
+
+If Railway keeps reporting health-check failures even though the app is running, you can temporarily remove the health check stanza from `railway.json`. Just delete the `healthcheckPath` and `healthcheckTimeout` lines. Railway will then rely on process exit codes instead. Reintroduce the health check once the service is stable so you keep automatic monitoring.

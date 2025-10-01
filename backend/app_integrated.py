@@ -1612,5 +1612,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"[Deployment] ⚠️ Model auto-training error: {e} - using fallback prediction methods")
 
-    # Run the app (disable reloader to avoid WinError 10038)
-    app.run(debug=True, host='0.0.0.0', port=5001, use_reloader=False)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False)

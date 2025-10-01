@@ -43,10 +43,10 @@ MAPBOX_API_KEY=pk.eyJ1IjoiYXRoYXJ2c3AiLCJhIjoiY21kbjlwZGtnMWl4ODJsc2ZqcDR5cHVnaC
    - Set root directory to `backend`
 
 3. **Configure Railway:**
-   - Railway should auto-detect Python and use the Procfile
-   - If needed, manually set:
-     - Build Command: `pip install -r requirements.txt`
-     - Start Command: `gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT app_integrated:app`
+    - Railway should auto-detect Python and use the Procfile
+    - If needed, manually set:
+       - Build Command: `pip install -r requirements.txt`
+       - Start Command: `sh -c "exec gunicorn -w ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-120} -b 0.0.0.0:${PORT:-8080} app_integrated:app"`
 
 4. **Add Environment Variables:**
    - In Railway dashboard, go to your service

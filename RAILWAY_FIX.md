@@ -34,3 +34,13 @@ Replace the last line in `app_integrated.py`:
 Since you're using Gunicorn in your Procfile, you don't need the `if __name__ == '__main__'` block to run in production. Gunicorn will import your app directly and run it.
 
 The fix above ensures it works in both cases.
+
+## Update (October 2025)
+
+Railway may execute the `startCommand` without a shell, which means expressions like `0.0.0.0:$PORT` are not expanded and Gunicorn receives the literal string `"$PORT"`. To avoid this, wrap the command in `sh -c` (as in `railway.json`) or keep the Docker `CMD` in shell form. Example:
+
+```
+sh -c "exec gunicorn -w ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-120} -b 0.0.0.0:${PORT:-8080} app_integrated:app"
+```
+
+This ensures the `PORT` Railway assigns is expanded correctly even when no default shell is provided by the orchestrator.

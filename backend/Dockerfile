@@ -31,5 +31,5 @@ RUN python -c "from colab_style_predictor import colab_style_model; colab_style_
 # Expose port (Railway will set PORT via environment variable)
 EXPOSE 8080
 
-# Use Gunicorn with proper configuration for Railway
-CMD gunicorn -w 2 --timeout 120 -b 0.0.0.0:$PORT app_integrated:app
+# Use Gunicorn with proper configuration for Railway (shell form for env expansion)
+CMD ["sh", "-c", "exec gunicorn -w ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-120} -b 0.0.0.0:${PORT:-8080} app_integrated:app"]

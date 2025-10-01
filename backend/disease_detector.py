@@ -198,31 +198,17 @@ class DiseaseDetector:
                 }
                 for i in top_3_indices
             ]
+            recommendations = self._get_treatment_recommendations(condition, confidence)
+
             # Unload model after prediction to free memory
             try:
-                from tensorflow.keras import backend as K
-                K.clear_session()
+                tf.keras.backend.clear_session()
             except Exception:
                 pass
             self.model = None
             import gc
             gc.collect()
-            return {
-                'success': True,
-                'predicted_class': predicted_class,
-                'plant_type': plant_type,
-                'condition': condition,
-                'confidence': confidence,
-                'top_3': top_3_predictions,
-                'plant_likelihood': plant_likelihood
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
-            recommendations = self._get_treatment_recommendations(condition, confidence)
-            
+
             return {
                 'success': True,
                 'prediction': {
@@ -236,7 +222,7 @@ class DiseaseDetector:
                 'top_predictions': top_3_predictions,
                 'recommendations': recommendations
             }
-            
+
         except Exception as e:
             return {
                 'success': False,

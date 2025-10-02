@@ -33,14 +33,11 @@ env.bak/
 venv.bak/
 
 # ML Models
-# Ignore all model artifacts except the active colab_rf_model.* we want tracked for reproducibility.
-*.h5
-*.joblib
-*.pkl
-*.pickle
-# !backend/colab_rf_model.joblib  # Commented out to ignore
-# !backend/colab_rf_model_meta.json
 
+# Track the pre-trained artifacts we ship with the backend
+!backend/colab_rf_model.joblib
+!backend/colab_rf_model_meta.json
+!model/plant_disease_model.h5
 
 # IDE
 .vscode/

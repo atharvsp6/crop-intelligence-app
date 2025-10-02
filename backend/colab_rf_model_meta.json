@@ -148,14 +148,9 @@
       "wheat"
     ]
   },
-  "created_at": "2025-10-02T08:50:26.962429",
+  "created_at": "2025-10-02T09:13:26.009243",
   "metrics": null,
-  "target_stats": {
-    "min": 0.0,
-    "max": 21105.0,
-    "mean": 79.9540091300867,
-    "std": 878.2838878837493,
-    "count": 19689
-  },
-  "cap_target": false
+  "target_stats": null,
+  "cap_target": false,
+  "compress_level": 5
 }

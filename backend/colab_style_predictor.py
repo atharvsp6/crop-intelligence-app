@@ -84,7 +84,12 @@ class ColabStyleCropModel:
     def _save(self):
         if not self.model:
             return
-        joblib.dump(self.model, self.MODEL_PATH)
+        compress_level = os.environ.get('COLAB_MODEL_COMPRESS_LEVEL', '5')
+        try:
+            compress_level_int = max(0, min(9, int(compress_level)))
+        except ValueError:
+            compress_level_int = 5
+        joblib.dump(self.model, self.MODEL_PATH, compress=compress_level_int)
         meta = {
             'feature_columns': self.feature_columns,
             'training_means': {} if self.training_means is None else self.training_means.to_dict(),
@@ -92,7 +97,8 @@ class ColabStyleCropModel:
             'created_at': datetime.utcnow().isoformat(),
             'metrics': self.metrics,
             'target_stats': self.target_stats,
-            'cap_target': self.CAP_TARGET
+            'cap_target': self.CAP_TARGET,
+            'compress_level': compress_level_int
         }
         with open(self.META_PATH, 'w') as f:
             json.dump(meta, f, indent=2)

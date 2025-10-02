@@ -125,16 +125,13 @@ CORS(
     resources=cors_config,
     supports_credentials=True
 )
-=======
-CORS(app, origins=allowed_origins + ["https://crop-intelligence-app.vercel.app"], supports_credentials=True)
->>>>>>> parent of 6e05a24 (Revert "fixing changes")
-=======
+
 # Allow both Vercel and localhost for dev, and apply to all /api/* routes
 CORS(app, resources={r"/api/*": {"origins": [
     "https://crop-intelligence-app.vercel.app",
     "http://localhost:3000"
 ]}}, supports_credentials=True)
->>>>>>> parent of eeff363 (fixing changes)
+
 jwt = JWTManager(app)
 
 # Initialize services

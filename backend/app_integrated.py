@@ -116,7 +116,8 @@ allowed_origin_set = {
     for origin in allowed_origins + [
         "https://crop-intelligence-app.vercel.app",
         "https://www.crop-intelligence-app.vercel.app",
-        "https://crop-intelligence-app-production.up.railway.app"
+        "https://crop-intelligence-app-production.up.railway.app",
+        "https://crop-intelligence-app-az6b.onrender.com"
     ]
     if origin
 }
@@ -179,6 +180,25 @@ def after_request(response):
             print(f"[CORS] ⚠️ BLOCKED request from: {origin} (not in allowed list)")
             print(f"[CORS] Allowed origins: {sorted(allowed_origin_set)}")
     return response
+
+# Global OPTIONS handler for all preflight requests
+@app.before_request
+def handle_preflight():
+    """Handle OPTIONS preflight requests globally."""
+    if request.method == 'OPTIONS':
+        origin = request.headers.get('Origin')
+        if origin:
+            normalized_origin = _normalize_origin(origin)
+            if normalized_origin in allowed_origin_set:
+                response = app.make_default_options_response()
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
+                response.headers['Access-Control-Max-Age'] = '3600'
+                print(f"[CORS] Preflight request from: {origin}")
+                return response
+        print(f"[CORS] ⚠️ Preflight BLOCKED from: {origin}")
 
 jwt = JWTManager(app)
 

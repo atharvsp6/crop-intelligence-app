@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test for Railway Backend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #2196F3;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌾 Railway Backend CORS Test</h1>
+        <p>Test CORS connectivity between your browser and Railway backend</p>
+
+        <div class="test-section">
+            <h3>Backend URL Configuration</h3>
+            <input type="text" id="backendUrl" value="https://crop-intelligence-app-production.up.railway.app" placeholder="Enter your Railway backend URL">
+            <button onclick="updateUrl()">Update URL</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 1: Health Check (GET /ping)</h3>
+            <p>Tests basic CORS with a simple GET request</p>
+            <button onclick="testPing()">Test Health Check</button>
+            <div id="pingResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Login Endpoint (POST /api/auth/login)</h3>
+            <p>Tests CORS preflight (OPTIONS) request</p>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="testLogin()">Test Login</button>
+            <div id="loginResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: CORS Headers Check</h3>
+            <p>Inspects CORS headers in the response</p>
+            <button onclick="testCorsHeaders()">Check CORS Headers</button>
+            <div id="headersResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: Preflight Request</h3>
+            <p>Manually test OPTIONS preflight request</p>
+            <button onclick="testPreflight()">Test Preflight</button>
+            <div id="preflightResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let BACKEND_URL = 'https://crop-intelligence-app-production.up.railway.app';
+
+        function updateUrl() {
+            BACKEND_URL = document.getElementById('backendUrl').value.trim().replace(/\/$/, '');
+            showResult('info', 'Backend URL updated to: ' + BACKEND_URL, 'pingResult');
+        }
+
+        function showResult(type, message, elementId) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        async function testPing() {
+            showResult('info', 'Testing health check...', 'pingResult');
+            try {
+                const response = await fetch(`${BACKEND_URL}/ping`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                
+                const message = `✅ SUCCESS!
+Status: ${response.status}
+CORS Header: ${corsHeader || 'Not present'}
+Response: ${JSON.stringify(data, null, 2)}
+
+This means:
+- Backend is reachable
+- CORS is ${corsHeader ? 'CONFIGURED ✓' : 'NOT CONFIGURED ✗'}
+- Health endpoint working`;
+                
+                showResult(corsHeader ? 'success' : 'error', message, 'pingResult');
+            } catch (error) {
+                const message = `❌ FAILED!
+Error: ${error.message}
+
+Possible causes:
+1. Backend is not running
+2. Wrong backend URL
+3. CORS blocking the request
+4. Network connectivity issue
+
+Check browser console for details.`;
+                showResult('error', message, 'pingResult');
+                console.error('Ping test error:', error);
+            }
+        }
+
+        async function testLogin() {
+            showResult('info', 'Testing login endpoint (this will trigger preflight)...', 'loginResult');
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                
+                const message = `${response.ok ? '✅' : '⚠️'} Response received!
+Status: ${response.status}
+CORS Header: ${corsHeader || 'Not present'}
+Response: ${JSON.stringify(data, null, 2)}
+
+CORS Status: ${corsHeader ? '✓ Working' : '✗ Not configured'}
+${response.status === 401 ? '\nNote: 401 Unauthorized is expected if credentials are wrong, but CORS is working!' : ''}`;
+                
+                showResult(corsHeader ? 'success' : 'error', message, 'loginResult');
+            } catch (error) {
+                const message = `❌ FAILED!
+Error: ${error.message}
+
+If you see "CORS policy" in the error:
+- Preflight OPTIONS request failed
+- Backend not returning Access-Control-Allow-Origin header
+- Check Railway environment variables
+
+Check browser Network tab and Console for details.`;
+                showResult('error', message, 'loginResult');
+                console.error('Login test error:', error);
+            }
+        }
+
+        async function testCorsHeaders() {
+            showResult('info', 'Checking CORS headers...', 'headersResult');
+            try {
+                const response = await fetch(`${BACKEND_URL}/ping`);
+                
+                const headers = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                    'Content-Type': response.headers.get('Content-Type')
+                };
+
+                const present = Object.values(headers).filter(v => v !== null).length;
+                const message = `${present >= 3 ? '✅' : '⚠️'} CORS Headers (${present}/5 present):
+
+${Object.entries(headers).map(([key, value]) => 
+    `${value ? '✓' : '✗'} ${key}: ${value || 'NOT PRESENT'}`
+).join('\n')}
+
+Expected for full CORS support:
+✓ Access-Control-Allow-Origin: ${window.location.origin}
+✓ Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+✓ Access-Control-Allow-Headers: Content-Type, Authorization, ...
+✓ Access-Control-Allow-Credentials: true`;
+
+                showResult(present >= 3 ? 'success' : 'error', message, 'headersResult');
+            } catch (error) {
+                showResult('error', `❌ Failed to check headers: ${error.message}`, 'headersResult');
+            }
+        }
+
+        async function testPreflight() {
+            showResult('info', 'Testing preflight OPTIONS request...', 'preflightResult');
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type, Authorization',
+                        'Origin': window.location.origin
+                    }
+                });
+
+                const allowOrigin = response.headers.get('Access-Control-Allow-Origin');
+                const allowMethods = response.headers.get('Access-Control-Allow-Methods');
+                const allowHeaders = response.headers.get('Access-Control-Allow-Headers');
+
+                const message = `${response.ok ? '✅' : '❌'} Preflight Response:
+Status: ${response.status}
+
+Headers:
+${allowOrigin ? '✓' : '✗'} Access-Control-Allow-Origin: ${allowOrigin || 'NOT PRESENT'}
+${allowMethods ? '✓' : '✗'} Access-Control-Allow-Methods: ${allowMethods || 'NOT PRESENT'}
+${allowHeaders ? '✓' : '✗'} Access-Control-Allow-Headers: ${allowHeaders || 'NOT PRESENT'}
+
+${allowOrigin && allowMethods && allowHeaders ? 
+'✅ Preflight working! POST requests should work.' : 
+'❌ Preflight failing! CORS headers missing.'}`;
+
+                showResult(response.ok ? 'success' : 'error', message, 'preflightResult');
+            } catch (error) {
+                showResult('error', `❌ Preflight failed: ${error.message}
+
+This usually means:
+- Backend is not handling OPTIONS requests
+- CORS not configured properly
+- Backend is down`, 'preflightResult');
+            }
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            console.log('CORS Test Tool Loaded');
+            console.log('Testing backend:', BACKEND_URL);
+        });
+    </script>
+</body>
+</html>

@@ -115,10 +115,14 @@ allowed_origin_set = {
     _normalize_origin(origin)
     for origin in allowed_origins + [
         "https://crop-intelligence-app.vercel.app",
-        "https://www.crop-intelligence-app.vercel.app"
+        "https://www.crop-intelligence-app.vercel.app",
+        "https://crop-intelligence-app-production.up.railway.app"
     ]
     if origin
 }
+
+# Debug: Print allowed origins at startup
+print(f"[CORS] Configured allowed origins: {sorted(allowed_origin_set)}")
 
 # Ensure Vercel preview domains are also allowed if provided via env (comma separated)
 preview_origins = os.environ.get("VERCEL_PREVIEW_ORIGINS")
@@ -155,6 +159,27 @@ CORS(
     resources=cors_config,
     supports_credentials=True
 )
+
+# Add CORS debugging for all requests
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses and log for debugging."""
+    origin = request.headers.get('Origin')
+    if origin:
+        # Check if origin is allowed
+        normalized_origin = _normalize_origin(origin)
+        if normalized_origin in allowed_origin_set:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
+            response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
+            print(f"[CORS] Allowed request from: {origin}")
+        else:
+            print(f"[CORS] ⚠️ BLOCKED request from: {origin} (not in allowed list)")
+            print(f"[CORS] Allowed origins: {sorted(allowed_origin_set)}")
+    return response
+
 jwt = JWTManager(app)
 
 # Initialize services

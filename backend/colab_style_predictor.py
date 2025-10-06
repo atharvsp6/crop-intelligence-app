@@ -60,10 +60,9 @@ class ColabStyleCropModel:
         print(f"[ColabModel] Checking model paths: MODEL_PATH={self.MODEL_PATH}, META_PATH={self.META_PATH}")
         print(f"[ColabModel] Model file exists: {os.path.exists(self.MODEL_PATH)}")
         print(f"[ColabModel] Meta file exists: {os.path.exists(self.META_PATH)}")
-        if os.path.exists(self.MODEL_PATH) and os.path.exists(self.META_PATH):
+        # Only load meta/encoders here to avoid loading the full joblib model into memory
+        if os.path.exists(self.META_PATH):
             try:
-                import joblib
-                self.model = joblib.load(self.MODEL_PATH)
                 with open(self.META_PATH, 'r') as f:
                     meta = json.load(f)
                 # Rebuild encoders
@@ -74,12 +73,42 @@ class ColabStyleCropModel:
                     self.encoders[col] = le
                 self.feature_columns = meta.get('feature_columns', [])
                 self.training_means = pd.Series(meta.get('training_means', {}))
-                self.is_trained = True
-                print("[ColabModel] Loaded persisted model.")
+                self.metrics = meta.get('metrics')
+                self.target_stats = meta.get('target_stats') or self.target_stats
+                self.is_trained = os.path.exists(self.MODEL_PATH)
+                print("[ColabModel] Loaded metadata for persisted model (model file not memory-mapped yet).")
                 return True
             except Exception as e:
-                print(f"[ColabModel] Failed to load model: {e}")
+                print(f"[ColabModel] Failed to load meta: {e}")
         return False
+
+    def load_model_file(self, mmap_mode: bool = True):
+        """Load the persisted joblib model into memory. 
+        If mmap_mode is True, use joblib's memory-mapping to reduce RAM pressure.
+        This keeps models read-only and reduces peak memory usage on constrained hosts.
+        """
+        if self.model is not None:
+            return self.model
+        if not os.path.exists(self.MODEL_PATH):
+            raise FileNotFoundError(f"Model file not found: {self.MODEL_PATH}")
+        try:
+            # Use joblib.load with mmap_mode='r' to memory-map arrays on supported backends
+            if mmap_mode:
+                self.model = joblib.load(self.MODEL_PATH, mmap_mode='r')
+            else:
+                self.model = joblib.load(self.MODEL_PATH)
+
+            # Force single-threaded predict to avoid duplicating memory across workers
+            try:
+                setattr(self.model, 'n_jobs', 1)
+            except Exception:
+                pass
+
+            print(f"[ColabModel] Model file loaded (mmap_mode={mmap_mode}).")
+            return self.model
+        except Exception as e:
+            print(f"[ColabModel] Failed to load model file: {e}")
+            raise
 
     def _save(self):
         if not self.model:
@@ -199,10 +228,11 @@ class ColabStyleCropModel:
                 X_train, X_val, y_train, y_val = train_test_split(
                     X_capped, y_capped, test_size=0.2, random_state=self.RANDOM_STATE
                 )
+                # Use single-threaded training/eval on low-memory hosts to avoid memory spike
                 eval_model = RandomForestRegressor(
                     n_estimators=self.N_ESTIMATORS,
                     random_state=self.RANDOM_STATE,
-                    n_jobs=-1,
+                    n_jobs=1,
                     oob_score=True
                 )
                 eval_model.fit(X_train, y_train)
@@ -219,10 +249,11 @@ class ColabStyleCropModel:
                 self.metrics = None
 
             # Final model on full dataset
+            # Final model (single-threaded to reduce memory usage on small instances)
             self.model = RandomForestRegressor(
                 n_estimators=self.N_ESTIMATORS,
                 random_state=self.RANDOM_STATE,
-                n_jobs=-1,
+                n_jobs=1,
                 oob_score=True
             )
             self.model.fit(X_capped, y_capped)
@@ -244,6 +275,7 @@ class ColabStyleCropModel:
                 # Use statistical fallback prediction when model is not available
                 return self._statistical_fallback_prediction(input_dict)
         try:
+            # Build a compact DataFrame for single-row input
             df = pd.DataFrame([input_dict])
             # Harmonize categorical text
             for col in ['State Name','Season','Crop']:
@@ -258,13 +290,63 @@ class ColabStyleCropModel:
                         repl = encoder.inverse_transform([0])[0]
                         df[col] = df[col].replace(list(unseen), repl)
                     df[col] = encoder.transform(df[col])
-            # ...existing code for prediction...
-            # After prediction, unload model to free memory
-            self.model = None
-            import gc
-            gc.collect()
-            # ...existing code for returning result...
-            # (The rest of the function remains unchanged)
+            # Feature engineering (same as training)
+            if {'Temperature_C','Rainfall_mm'}.issubset(df.columns):
+                df['Temp_Rain_Interaction'] = df['Temperature_C'] * df['Rainfall_mm']
+            if {'Humidity_%','pH'}.issubset(df.columns):
+                df['Humidity_pH_Interaction'] = df['Humidity_%'] * df['pH']
+            if {'Fertilizer','Pesticide'}.issubset(df.columns):
+                df['Fertilizer_Pesticide_Interaction'] = df['Fertilizer'] * df['Pesticide']
+            if 'Temperature_C' in df.columns:
+                df['Temperature_C_sq'] = df['Temperature_C']**2
+                df['GDD'] = (df['Temperature_C'] - self.GDD_BASE_TEMP).apply(lambda x: max(0,x))
+            if 'Rainfall_mm' in df.columns:
+                df['Rainfall_mm_sq'] = df['Rainfall_mm']**2
+            if 'pH' in df.columns:
+                df['pH_sq'] = df['pH']**2
+
+            # Align columns and impute in a compact numpy array (float32) to reduce memory
+            for col in self.feature_columns:
+                if col not in df.columns:
+                    if self.training_means is not None and col in self.training_means:
+                        df[col] = self.training_means[col]
+                    else:
+                        df[col] = 0
+            df = df[self.feature_columns]
+
+            if self.training_means is not None:
+                df = df.fillna(self.training_means)
+
+            # Convert to compact numpy float32 for prediction
+            X = df.to_numpy(dtype='float32')
+
+            # Load model file with memory mapping to reduce peak usage
+            model = None
+            try:
+                model = self.load_model_file(mmap_mode=True)
+                # ensure single-threaded predict
+                try:
+                    setattr(model, 'n_jobs', 1)
+                except Exception:
+                    pass
+
+                pred = model.predict(X)[0]
+            finally:
+                # Explicitly cleanup model and large arrays
+                try:
+                    del X
+                except Exception:
+                    pass
+                try:
+                    # For safety, remove the in-memory model reference
+                    if model is not None:
+                        # If using joblib mmap, deleting the object helps release python references
+                        del model
+                        self.model = None
+                except Exception:
+                    pass
+                import gc
+                gc.collect()
 
             # Feature engineering (same as training)
             if {'Temperature_C','Rainfall_mm'}.issubset(df.columns):

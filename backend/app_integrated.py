@@ -3,6 +3,7 @@
 from flask import Flask, request, jsonify
 import sys, os
 import json
+import gc
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
@@ -21,6 +22,12 @@ load_dotenv()
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
+# Import memory management utilities
+from memory_manager import (
+    log_memory, cleanup_model, LazyModelLoader, 
+    is_demo_mode, get_demo_response
+)
+
 # Import our services (after loading env vars)
 from database import get_collection
 from auth import UserManager
@@ -36,8 +43,11 @@ except Exception as _ie:
     _create_ml_routes = None
     multilingual_import_error = str(_ie)
     print(f"[Multilingual Import] Failed to import multilingual_chatbot module: {_ie}")
-from colab_style_predictor import colab_style_model
-from disease_detector import disease_detector
+
+# LAZY LOADING: Do NOT import model instances at startup
+# Instead, we'll load them on-demand in the endpoints
+# from colab_style_predictor import colab_style_model  # REMOVED
+# from disease_detector import disease_detector  # REMOVED
 
 # Initialize financial services and market data
 try:
@@ -52,6 +62,28 @@ except Exception as e:
     market_data_service = None
     FINANCIAL_SERVICES_AVAILABLE = False
 from community_forum import community_forum
+
+# =============================================================================
+# LAZY MODEL LOADERS - Models are loaded on first use, then cleaned up
+# =============================================================================
+def _load_crop_model():
+    """Lazy loader for crop yield prediction model."""
+    from colab_style_predictor import ColabStyleCropModel
+    return ColabStyleCropModel()
+
+def _load_disease_model():
+    """Lazy loader for disease detection model."""
+    from disease_detector import DiseaseDetector
+    detector = DiseaseDetector()
+    detector.load_model()  # Ensure model is loaded
+    return detector
+
+# Create lazy loaders (don't load models yet)
+crop_model_loader = LazyModelLoader("CropYieldModel", _load_crop_model)
+disease_model_loader = LazyModelLoader("DiseaseDetectionModel", _load_disease_model)
+
+print("[Startup] Models configured for lazy loading. Memory usage:")
+log_memory("After imports, before model loading")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -710,7 +742,10 @@ if multilingual_chatbot and _create_ml_routes:
                         'fertilizer_input': float(data.get('fertilizer_input', 50000)),
                         'pesticide_input': float(data.get('pesticide_input', 1000))
                     }
-                    prediction = colab_style_model.predict(_map_frontend_to_colab(pred_payload))
+                    # Use lazy loading for crop prediction
+                    with crop_model_loader as model:
+                        prediction = model.predict(_map_frontend_to_colab(pred_payload))
+                    gc.collect()
             except Exception as _pe:
                 prediction = {'success': False, 'error': f'Prediction error: {_pe}'}
             advice_query = f"I am growing {crop} in {state}. Provide practical advice to improve yield." if crop else data.get('query','Agricultural advice please')
@@ -762,10 +797,22 @@ def explain_yield_prediction():
 
 @app.route('/api/predict-crop', methods=['POST'])
 def predict_crop_yield():
-    """Predict crop yield using Colab-style model (accepts frontend keys)."""
+    """Predict crop yield using Colab-style model (accepts frontend keys) - LAZY LOADED."""
+    # Check demo mode first
+    if is_demo_mode():
+        print("[Predict Crop] DEMO_MODE enabled, returning sample data")
+        demo_result = get_demo_response('crop_prediction')
+        data = request.get_json() or {}
+        language = _normalize_language_code(data.get('language'))
+        demo_result['selected_language'] = language
+        return jsonify(demo_result)
+    
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
-    result = colab_style_model.predict(payload)
+    
+    # Use context manager for automatic cleanup
+    with crop_model_loader as colab_style_model:
+        result = colab_style_model.predict(payload)
 
     language = _normalize_language_code(data.get('language'))
     merged_payload = {**payload, **data}
@@ -786,6 +833,11 @@ def predict_crop_yield():
         result['ai_recommendations_error'] = result.get('error') or 'Prediction failed; recommendations skipped.'
 
     result['selected_language'] = language
+    
+    # Model is automatically cleaned up by context manager
+    gc.collect()  # Extra garbage collection
+    log_memory("After crop prediction and cleanup")
+    
     return jsonify(result)
 
 # Backward compatibility alias and public endpoint
@@ -793,11 +845,26 @@ def predict_crop_yield():
 def predict_crop_yield_public():
     if request.method == 'OPTIONS':
         return ('',204)
+    
+    # Check demo mode first
+    if is_demo_mode():
+        print("[Predict Yield] DEMO_MODE enabled, returning sample data")
+        demo_result = get_demo_response('crop_prediction')
+        data = request.get_json() or {}
+        language = _normalize_language_code(data.get('language') or request.args.get('language'))
+        demo_result['selected_language'] = language
+        return jsonify(demo_result)
+    
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
     
-    # Get ML model prediction
-    ml_result = colab_style_model.predict(payload)
+    # Use context manager for automatic cleanup
+    with crop_model_loader as colab_style_model:
+        # Get ML model prediction
+        ml_result = colab_style_model.predict(payload)
+    
+    # Model is cleaned up automatically here
+    gc.collect()
     
     # Get Gemini prediction for validation
     gemini_result = get_gemini_yield_prediction(payload)
@@ -876,51 +943,66 @@ def predict_crop_yield_public():
     result['selected_language'] = language
     print(f"[Prediction Response] Final prediction_source: {result.get('prediction_source')}")
     print(f"[Prediction Response] Final predicted_yield: {result.get('predicted_yield')}")
+    
+    log_memory("After yield prediction and cleanup")
     return jsonify(result)
 
 # Training endpoint for the new model
 @app.route('/api/train-model', methods=['POST'])
 def train_colab_model():
-    cap_param = (request.args.get('cap_target','').lower())
-    if cap_param in ('false','0','no'):
-        colab_style_model.CAP_TARGET = False
-    elif cap_param in ('true','1','yes'):
-        colab_style_model.CAP_TARGET = True
-    ok = colab_style_model.train()
-    meta = colab_style_model.get_meta()
-    return jsonify({'success': ok, 'meta': meta, 'cap_target': colab_style_model.CAP_TARGET})
+    """Train the crop model - uses lazy loading."""
+    with crop_model_loader as colab_style_model:
+        cap_param = (request.args.get('cap_target','').lower())
+        if cap_param in ('false','0','no'):
+            colab_style_model.CAP_TARGET = False
+        elif cap_param in ('true','1','yes'):
+            colab_style_model.CAP_TARGET = True
+        ok = colab_style_model.train()
+        meta = colab_style_model.get_meta()
+        cap_target = colab_style_model.CAP_TARGET
+    
+    gc.collect()
+    log_memory("After model training and cleanup")
+    return jsonify({'success': ok, 'meta': meta, 'cap_target': cap_target})
 
 # Public deployment setup endpoint (no auth required for initial setup)
 @app.route('/api/setup-model', methods=['GET', 'POST'])
 def setup_deployment_model():
     """Public endpoint to initialize model for first deployment"""
     try:
-        if colab_style_model.is_trained:
-            return jsonify({
-                'success': True,
-                'message': 'Model already trained and ready',
-                'status': 'ready',
-                'meta': colab_style_model.get_meta()
-            })
+        with crop_model_loader as colab_style_model:
+            if colab_style_model.is_trained:
+                meta = colab_style_model.get_meta()
+                result = {
+                    'success': True,
+                    'message': 'Model already trained and ready',
+                    'status': 'ready',
+                    'meta': meta
+                }
+            else:
+                print("[Setup] Training model for deployment...")
+                ok = colab_style_model.train()
+                
+                if ok:
+                    result = {
+                        'success': True,
+                        'message': 'Model trained successfully for deployment',
+                        'status': 'trained',
+                        'meta': colab_style_model.get_meta()
+                    }
+                else:
+                    result = {
+                        'success': False,
+                        'message': 'Model training failed - using statistical fallback',
+                        'status': 'fallback_mode'
+                    }
         
-        print("[Setup] Training model for deployment...")
-        ok = colab_style_model.train()
-        
-        if ok:
-            return jsonify({
-                'success': True,
-                'message': 'Model trained successfully for deployment',
-                'status': 'trained',
-                'meta': colab_style_model.get_meta()
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Model training failed - using statistical fallback',
-                'status': 'fallback_mode'
-            })
+        gc.collect()
+        log_memory("After model setup and cleanup")
+        return jsonify(result)
             
     except Exception as e:
+        gc.collect()
         return jsonify({
             'success': False,
             'error': str(e),
@@ -934,24 +1016,49 @@ def setup_deployment_model():
 # Keep backward compatibility raw endpoints if someone wants to send notebook-native keys
 @app.route('/api/colab/predict', methods=['POST'])
 def colab_predict_raw():
+    """Raw prediction endpoint with lazy loading."""
+    if is_demo_mode():
+        return jsonify(get_demo_response('crop_prediction'))
+    
     data = request.get_json() or {}
-    return jsonify(colab_style_model.predict(data))
+    with crop_model_loader as colab_style_model:
+        result = colab_style_model.predict(data)
+    
+    gc.collect()
+    log_memory("After colab predict")
+    return jsonify(result)
 
 @app.route('/api/colab/train', methods=['POST'])
 def colab_train_raw():
-    ok = colab_style_model.train()
+    """Raw training endpoint with lazy loading."""
+    with crop_model_loader as colab_style_model:
+        ok = colab_style_model.train()
+    
+    gc.collect()
+    log_memory("After colab train")
     return jsonify({'success': ok})
 
 @app.route('/api/model-info/yield', methods=['GET'])
 def model_info_yield():
-    return jsonify({'success': True, 'meta': colab_style_model.get_meta()})
+    """Get model metadata."""
+    with crop_model_loader as colab_style_model:
+        meta = colab_style_model.get_meta()
+    
+    gc.collect()
+    return jsonify({'success': True, 'meta': meta})
 
 @app.route('/api/model-info/yield/debug-aligned', methods=['POST'])
 def model_info_yield_aligned():
+    """Debug feature alignment."""
     data = request.get_json() or {}
     if 'Crop' not in data and 'crop_type' in data:
         data = _map_frontend_to_colab(data)
-    return jsonify(colab_style_model.debug_aligned_features(data))
+    
+    with crop_model_loader as colab_style_model:
+        result = colab_style_model.debug_aligned_features(data)
+    
+    gc.collect()
+    return jsonify(result)
 
 
 def _normalize_language_code(code: str | None) -> str:
@@ -1186,8 +1293,13 @@ def _map_frontend_to_colab(d: dict) -> dict:
 @app.route('/api/detect-disease', methods=['POST'])
 @jwt_required()
 def detect_plant_disease():
-    """Disease detection endpoint - Enhanced AI model for plant disease classification."""
+    """Disease detection endpoint - Enhanced AI model for plant disease classification - LAZY LOADED."""
     try:
+        # Check demo mode first
+        if is_demo_mode():
+            print("[Disease Detection] DEMO_MODE enabled, returning sample data")
+            return jsonify(get_demo_response('disease_detection'))
+        
         user_id = get_jwt_identity()
         image_data = None
         
@@ -1200,13 +1312,21 @@ def detect_plant_disease():
         if not image_data:
             return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
         
-        detection = disease_detector.predict_disease(image_data)
+        # Use context manager for automatic cleanup
+        with disease_model_loader as disease_detector:
+            detection = disease_detector.predict_disease(image_data)
+        
+        # Model is cleaned up automatically here
+        gc.collect()
+        log_memory("After disease detection and cleanup")
+        
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')
         
         status_code = 200 if detection.get('success') else 400
         return jsonify(detection), status_code
     except Exception as e:
+        gc.collect()
         return jsonify({'error': f'Disease detection failed: {str(e)}'}), 500
 
 @app.route('/api/financial/roi', methods=['POST'])
@@ -1645,19 +1765,12 @@ if __name__ == '__main__':
         print("Warning: .env file not found. Please create one with the required environment variables.")
         print("Check .env.example for the required variables.")
 
-    # Auto-train model if missing (for deployment)
-    try:
-        if not colab_style_model.is_trained and not colab_style_model._loaded:
-            print("[Deployment] Model not found. Auto-training model for first deployment...")
-            training_success = colab_style_model.train()
-            if training_success:
-                print("[Deployment] ✅ Model trained successfully!")
-            else:
-                print("[Deployment] ❌ Model training failed - using statistical fallback")
-        else:
-            print("[Deployment] ✅ Model already loaded and ready")
-    except Exception as e:
-        print(f"[Deployment] ⚠️ Model auto-training error: {e} - using fallback prediction methods")
+    # REMOVED auto-training at startup for RAM optimization
+    # Models will be loaded lazily when endpoints are called
+    print("[Deployment] Models configured for lazy loading - will load on first use")
+    print("[Deployment] Set DEMO_MODE=true to use fast demo responses without ML models")
+    
+    log_memory("At server startup (before first request)")
 
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False)

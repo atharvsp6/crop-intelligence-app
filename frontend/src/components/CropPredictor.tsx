@@ -945,6 +945,8 @@ const CropPredictor: React.FC = () => {
             console.log('🔄 Using statistical fallback prediction method');
           } else if (data.prediction_source === 'gemini_ai') {
             console.log('🤖 Using Gemini AI prediction (validation applied)');
+          } else if (data.prediction_source === 'demo_static') {
+            console.log('🧪 Using demo fallback prediction');
           } else if (data.validation_applied) {
             console.log('✅ ML prediction validated by Gemini AI');
           } else {

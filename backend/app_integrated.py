@@ -305,29 +305,33 @@ elif not genai:
 # =============================================================================
 def get_gemini_yield_prediction(crop_data: dict) -> dict:
     """
-    Get yield prediction from Gemini AI for cross-validation
+    Get yield prediction from Gemini AI for cross-validation or DEMO_MODE.
+    Returns a response matching the ML model format.
     """
     if not yield_recommendation_model:
+        print("[Gemini Prediction] Model not available, using fallback")
         return None
     
     try:
         # Extract relevant data
-        crop = crop_data.get('Crop', 'unknown')
-        state = crop_data.get('State Name', 'India')
-        season = crop_data.get('Season', 'kharif')
-        area = crop_data.get('Area', 1.0)
-        rainfall = crop_data.get('Annual_Rainfall', 800)
-        fertilizer = crop_data.get('Fertilizer', 50)
-        pesticide = crop_data.get('Pesticide', 10)
-        temperature = crop_data.get('Temperature_C', 25)
-        humidity = crop_data.get('Humidity_%', 65)
-        ph = crop_data.get('pH', 6.5)
+        crop = crop_data.get('Crop', crop_data.get('crop_type', 'unknown'))
+        state = crop_data.get('State Name', crop_data.get('state', 'India'))
+        season = crop_data.get('Season', crop_data.get('season', 'kharif'))
+        area = crop_data.get('Area', crop_data.get('area', 1.0))
+        rainfall = crop_data.get('Annual_Rainfall', crop_data.get('annual_rainfall', 800))
+        fertilizer = crop_data.get('Fertilizer', crop_data.get('fertilizer_input', 50))
+        pesticide = crop_data.get('Pesticide', crop_data.get('pesticide_input', 10))
+        temperature = crop_data.get('Temperature_C', crop_data.get('temperature', 25))
+        humidity = crop_data.get('Humidity_%', crop_data.get('humidity', 65))
+        ph = crop_data.get('pH', crop_data.get('soil_ph', 6.5))
+        
+        print(f"[Gemini Prediction] Requesting prediction for {crop} in {state}, {season} season")
         
         # Create a detailed prompt for yield prediction
         prompt = f"""
 You are an expert agricultural scientist specializing in crop yield prediction for Indian agriculture.
 
-Based on the following crop and environmental data, predict the total yield in metric tons:
+Based on the following crop and environmental data, predict the total yield in metric tons per hectare:
 
 Crop Information:
 - Crop: {crop}
@@ -349,7 +353,7 @@ Instructions:
 1. Consider the specific crop's typical yield for the given state and season
 2. Factor in environmental conditions (rainfall, temperature, humidity, pH)
 3. Account for fertilizer and pesticide usage effects
-4. Provide ONLY a numerical yield prediction in metric tons
+4. Provide ONLY a numerical yield prediction in tons per hectare
 5. Be realistic based on Indian agricultural standards
 
 Response format: Just return the number (e.g., "3.45")
@@ -366,18 +370,40 @@ Response format: Just return the number (e.g., "3.45")
             
             if yield_match:
                 gemini_yield = float(yield_match.group(1))
+                print(f"[Gemini Prediction] SUCCESS: Predicted yield = {gemini_yield} ton/hectare")
+                
+                # Return in ML model format for seamless integration
                 return {
                     'success': True,
-                    'predicted_yield': gemini_yield,
+                    'predicted_yield': round(gemini_yield, 4),
+                    'yield_unit': 'ton/hectare',
+                    'model_confidence': 0.85,  # Simulated confidence
+                    'prediction_source': 'gemini_ai',
+                    'validation_applied': False,
+                    'confidence': 'gemini_estimate',
+                    'feature_count': 18,  # Typical feature count
+                    'target_mean': None,
+                    'target_std': None,
+                    'comparison_to_average_percent': None,
+                    'yield_category': 'gemini_prediction',
+                    'yield_category_label': 'AI prediction',
+                    'confidence_interval': {
+                        'lower': round(gemini_yield * 0.85, 4),
+                        'upper': round(gemini_yield * 1.15, 4)
+                    },
                     'method': 'gemini_ai',
+                    'ai_recommendations_source': 'gemini_ai',
                     'raw_response': yield_text
                 }
         
+        print("[Gemini Prediction] FAILED: Could not extract yield from response")
         return None
         
     except Exception as e:
         # Log error but don't expose to frontend
-        print(f"[Gemini Validation] Error: {e}")
+        print(f"[Gemini Prediction] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
@@ -843,21 +869,32 @@ def explain_yield_prediction():
 @app.route('/api/predict-crop', methods=['POST'])
 def predict_crop_yield():
     """Predict crop yield using Colab-style model (accepts frontend keys) - LAZY LOADED."""
-    # Check demo mode first
-    if is_demo_mode():
-        print("[Predict Crop] DEMO_MODE enabled, returning sample data")
-        demo_result = get_demo_response('crop_prediction')
-        data = request.get_json() or {}
-        language = _normalize_language_code(data.get('language'))
-        demo_result['selected_language'] = language
-        return jsonify(demo_result)
-    
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
     
-    # Use context manager for automatic cleanup
-    with crop_model_loader as colab_style_model:
-        result = colab_style_model.predict(payload)
+    # Check demo mode - use Gemini AI instead of ML model
+    if is_demo_mode():
+        print("[Predict Crop] DEMO_MODE enabled, using Gemini AI prediction")
+        result = get_gemini_yield_prediction(payload) or {}
+
+        if result.get('success'):
+            result.setdefault('prediction_source', 'gemini_ai')
+            result.setdefault('method', 'gemini_ai')
+            result.setdefault('validation_applied', False)
+        else:
+            print("[Predict Crop] Gemini prediction failed, using static fallback")
+            result = get_demo_response('crop_prediction')
+            if isinstance(result, dict):
+                result.setdefault('prediction_source', 'demo_static')
+                result.setdefault('method', 'demo_static')
+    else:
+        # Production mode - use ML model with lazy loading
+        with crop_model_loader as colab_style_model:
+            result = colab_style_model.predict(payload)
+        
+        # Model is automatically cleaned up by context manager
+        gc.collect()  # Extra garbage collection
+        log_memory("After crop prediction and cleanup")
 
     language = _normalize_language_code(data.get('language'))
     merged_payload = {**payload, **data}
@@ -867,6 +904,7 @@ def predict_crop_yield():
             try:
                 recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
                 result['ai_recommendations'] = recommendations
+                result['ai_recommendations_source'] = 'gemini_ai'
                 result['ai_recommendations_language'] = language
             except Exception as rec_err:
                 result['ai_recommendations_error'] = str(rec_err)
@@ -879,10 +917,6 @@ def predict_crop_yield():
 
     result['selected_language'] = language
     
-    # Model is automatically cleaned up by context manager
-    gc.collect()  # Extra garbage collection
-    log_memory("After crop prediction and cleanup")
-    
     return jsonify(result)
 
 # Backward compatibility alias and public endpoint
@@ -891,76 +925,87 @@ def predict_crop_yield_public():
     if request.method == 'OPTIONS':
         return ('',204)
     
-    # Check demo mode first
-    if is_demo_mode():
-        print("[Predict Yield] DEMO_MODE enabled, returning sample data")
-        demo_result = get_demo_response('crop_prediction')
-        data = request.get_json() or {}
-        language = _normalize_language_code(data.get('language') or request.args.get('language'))
-        demo_result['selected_language'] = language
-        return jsonify(demo_result)
-    
     data = request.get_json() or {}
     payload = _map_frontend_to_colab(data)
     
-    # Use context manager for automatic cleanup
-    with crop_model_loader as colab_style_model:
-        # Get ML model prediction
-        ml_result = colab_style_model.predict(payload)
-    
-    # Model is cleaned up automatically here
-    gc.collect()
-    
-    # Get Gemini prediction for validation
-    gemini_result = get_gemini_yield_prediction(payload)
-    
-    # Validation logic: compare predictions and decide which to use
-    final_result = ml_result.copy()  # Start with ML result
-    
-    if ml_result.get('success') and gemini_result and gemini_result.get('success'):
-        ml_yield = ml_result.get('predicted_yield', 0)
-        gemini_yield = gemini_result.get('predicted_yield', 0)
+    # Check demo mode - use Gemini AI instead of ML model
+    if is_demo_mode():
+        print("[Predict Yield] DEMO_MODE enabled, using Gemini AI prediction")
+        gemini_result = get_gemini_yield_prediction(payload) or {}
+
+        if gemini_result.get('success'):
+            final_result = gemini_result
+            final_result.setdefault('prediction_source', 'gemini_ai')
+            final_result.setdefault('method', 'gemini_ai')
+            final_result.setdefault('validation_applied', False)
+            print(f"[Predict Yield] Gemini prediction successful: {gemini_result.get('predicted_yield')} ton/hectare")
+        else:
+            print("[Predict Yield] Gemini prediction failed, using static fallback")
+            final_result = get_demo_response('crop_prediction') or {}
+            final_result.setdefault('prediction_source', 'demo_static')
+            final_result.setdefault('method', 'demo_static')
+    else:
+        # Production mode - use ML model with Gemini validation
+        # Use context manager for automatic cleanup
+        with crop_model_loader as colab_style_model:
+            # Get ML model prediction
+            ml_result = colab_style_model.predict(payload)
         
-        # Calculate percentage difference
-        if ml_yield > 0:
-            percentage_diff = abs(ml_yield - gemini_yield) / ml_yield * 100
+        # Model is cleaned up automatically here
+        gc.collect()
+        
+        # Get Gemini prediction for validation
+        gemini_result = get_gemini_yield_prediction(payload)
+        
+        # Validation logic: compare predictions and decide which to use
+        final_result = ml_result.copy()  # Start with ML result
+        
+        if ml_result.get('success') and gemini_result and gemini_result.get('success'):
+            ml_yield = ml_result.get('predicted_yield', 0)
+            gemini_yield = gemini_result.get('predicted_yield', 0)
             
-            # Log for debugging (backend only)
-            print(f"[Prediction Validation] ML: {ml_yield}, Gemini: {gemini_yield}, Diff: {percentage_diff:.1f}%")
-            
-            # If difference is significant (>25%), use Gemini's prediction
-            if percentage_diff > 25:
-                print(f"[Prediction Validation] Large difference detected, using Gemini prediction")
+            # Calculate percentage difference
+            if ml_yield > 0:
+                percentage_diff = abs(ml_yield - gemini_yield) / ml_yield * 100
+                
+                # Log for debugging (backend only)
+                print(f"[Prediction Validation] ML: {ml_yield}, Gemini: {gemini_yield}, Diff: {percentage_diff:.1f}%")
+                
+                # If difference is significant (>25%), use Gemini's prediction
+                if percentage_diff > 25:
+                    print(f"[Prediction Validation] Large difference detected, using Gemini prediction")
+                    final_result['predicted_yield'] = gemini_yield
+                    final_result['prediction_source'] = 'gemini_ai'
+                    final_result['validation_applied'] = True
+                    final_result['original_ml_prediction'] = ml_yield
+                    final_result['confidence'] = 'gemini_validated'
+                else:
+                    print(f"[Prediction Validation] Predictions aligned, using ML prediction")
+                    final_result['prediction_source'] = 'machine_learning'
+                    final_result['validation_applied'] = True
+                    final_result['gemini_confirmation'] = gemini_yield
+            else:
+                # If ML prediction is invalid, use Gemini
+                print(f"[Prediction Validation] ML prediction invalid, using Gemini")
                 final_result['predicted_yield'] = gemini_yield
                 final_result['prediction_source'] = 'gemini_ai'
                 final_result['validation_applied'] = True
-                final_result['original_ml_prediction'] = ml_yield
-                final_result['confidence'] = 'gemini_validated'
-            else:
-                print(f"[Prediction Validation] Predictions aligned, using ML prediction")
-                final_result['prediction_source'] = 'machine_learning'
-                final_result['validation_applied'] = True
-                final_result['gemini_confirmation'] = gemini_yield
-        else:
-            # If ML prediction is invalid, use Gemini
-            print(f"[Prediction Validation] ML prediction invalid, using Gemini")
-            final_result['predicted_yield'] = gemini_yield
+                
+        elif not ml_result.get('success') and gemini_result and gemini_result.get('success'):
+            # If ML failed but Gemini succeeded, use Gemini
+            print(f"[Prediction Validation] ML failed, using Gemini as primary")
+            final_result = gemini_result.copy()
             final_result['prediction_source'] = 'gemini_ai'
-            final_result['validation_applied'] = True
+            final_result['fallback_reason'] = 'ml_model_failed'
             
-    elif not ml_result.get('success') and gemini_result and gemini_result.get('success'):
-        # If ML failed but Gemini succeeded, use Gemini
-        print(f"[Prediction Validation] ML failed, using Gemini as primary")
-        final_result = gemini_result.copy()
-        final_result['prediction_source'] = 'gemini_ai'
-        final_result['fallback_reason'] = 'ml_model_failed'
+        elif ml_result.get('success'):
+            # ML succeeded, Gemini failed/unavailable
+            final_result['prediction_source'] = 'machine_learning'
+            final_result['validation_applied'] = False
+            if ml_result.get('method') == 'statistical_fallback':
+                print(f"[Prediction Validation] Using statistical fallback")
         
-    elif ml_result.get('success'):
-        # ML succeeded, Gemini failed/unavailable
-        final_result['prediction_source'] = 'machine_learning'
-        final_result['validation_applied'] = False
-        if ml_result.get('method') == 'statistical_fallback':
-            print(f"[Prediction Validation] Using statistical fallback")
+        log_memory("After yield prediction and cleanup")
         
     # Use the final result for language processing
     result = final_result
@@ -975,6 +1020,7 @@ def predict_crop_yield_public():
             try:
                 recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
                 result['ai_recommendations'] = recommendations
+                result['ai_recommendations_source'] = 'gemini_ai'
                 result['ai_recommendations_language'] = language
             except Exception as rec_err:
                 result['ai_recommendations_error'] = str(rec_err)

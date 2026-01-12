@@ -1,0 +1,23 @@
+# Disease Detection Service - Requirements
+# Optimized for free-tier deployment (low RAM)
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# ML/DL Dependencies
+torch==2.1.2
+torchvision==0.16.2
+timm==0.9.12
+Pillow==10.2.0
+numpy==1.26.3
+
+# Utilities
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+httpx==0.26.0
+
+# Health & Monitoring
+prometheus-client==0.19.0

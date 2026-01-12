@@ -1,0 +1,63 @@
+version: '3.8'
+
+# Development Docker Compose
+# Use: docker-compose -f docker-compose.dev.yml up
+
+services:
+  api:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    container_name: crop-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DISEASE_SERVICE_URL=http://disease-service:8001
+      - YIELD_SERVICE_URL=http://yield-service:8002
+      - LOG_LEVEL=DEBUG
+      - LOG_FORMAT=text
+    volumes:
+      - ./backend-fastapi:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - disease-service
+      - yield-service
+    networks:
+      - crop-network-dev
+
+  disease-service:
+    build:
+      context: ./ai-services/disease-detection-service
+      dockerfile: Dockerfile
+    container_name: disease-service-dev
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=true
+      - DEVICE=cpu
+    volumes:
+      - ./ai-services/disease-detection-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    networks:
+      - crop-network-dev
+
+  yield-service:
+    build:
+      context: ./ai-services/crop-yield-service
+      dockerfile: Dockerfile
+    container_name: yield-service-dev
+    ports:
+      - "8002:8002"
+    environment:
+      - DEBUG=true
+    volumes:
+      - ./ai-services/crop-yield-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+    networks:
+      - crop-network-dev
+
+networks:
+  crop-network-dev:
+    driver: bridge

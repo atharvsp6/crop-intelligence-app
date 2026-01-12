@@ -254,7 +254,6 @@ const AuthPage: React.FC = () => {
       document.body.removeChild(script);
     };
   }, []);
-  };
 
   return (
     <Box

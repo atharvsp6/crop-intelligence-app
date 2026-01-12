@@ -58,3 +58,8 @@ node_modules/
 # Database files
 *.db
 *.sqlite
+
+# Firebase credentials (never commit these!)
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
+*-adminsdk-*.json

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -13,6 +13,7 @@ import {
   Stack,
   InputAdornment,
   IconButton,
+  Divider,
 } from '@mui/material';
 import {
   Visibility,
@@ -20,6 +21,7 @@ import {
   Email,
   Person,
   Lock,
+  Google,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -186,6 +188,72 @@ const AuthPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Google Sign In handler
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Load Google Identity Services
+      const google = (window as any).google;
+      if (!google) {
+        setError('Google Sign In is not available. Please try again later.');
+        setLoading(false);
+        return;
+      }
+
+      // Initialize and prompt
+      google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID',
+        callback: async (response: any) => {
+          try {
+            // Send ID token to backend
+            const result = await axios.post(`${API_BASE}/api/auth/google`, {
+              id_token: response.credential,
+            });
+
+            if (result.data.success) {
+              const { token, user } = result.data;
+              localStorage.setItem('token', token);
+              authContext?.login(user, token);
+              setSuccess('Signed in with Google successfully!');
+              
+              setTimeout(() => {
+                navigate(from, { replace: true });
+              }, 1500);
+            } else {
+              setError(result.data.message || 'Google sign in failed');
+            }
+          } catch (err: any) {
+            setError(err.response?.data?.message || 'Google sign in failed');
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+
+      google.accounts.id.prompt();
+    } catch (err: any) {
+      console.error('Google Sign In error:', err);
+      setError('Google Sign In failed. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Load Google Identity Services script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
   };
 
   return (
@@ -377,6 +445,41 @@ const AuthPage: React.FC = () => {
                 }}
               >
                 {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+              </Button>
+
+              <Divider sx={{ my: 1 }}>
+                <Typography variant="body2" sx={{ color: '#666', px: 2 }}>
+                  OR
+                </Typography>
+              </Divider>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                startIcon={<Google />}
+                sx={{
+                  borderRadius: 3,
+                  height: 56,
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderColor: '#4285f4',
+                  color: '#4285f4',
+                  backgroundColor: 'white',
+                  '&:hover': {
+                    borderColor: '#357abd',
+                    backgroundColor: 'rgba(66, 133, 244, 0.04)',
+                  },
+                  '&:disabled': {
+                    borderColor: 'rgba(66, 133, 244, 0.4)',
+                    color: 'rgba(66, 133, 244, 0.6)',
+                  },
+                }}
+              >
+                Continue with Google
               </Button>
             </Stack>
           </form>

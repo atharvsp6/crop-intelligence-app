@@ -383,37 +383,185 @@ class LegacyLoginRequest(BaseModel):
 class LegacyRegisterRequest(BaseModel):
     email: str
     password: str
+    username: str = ""
+    full_name: str = ""
     name: str = ""
+
+
+class GoogleAuthRequest(BaseModel):
+    id_token: str
+    email: str = ""
+    name: str = ""
+    photo_url: str = ""
+
+
+@router.post("/api/auth/login")
+async def legacy_auth_login(request: LegacyLoginRequest):
+    """Legacy login endpoint with /api/auth prefix"""
+    from app.core.security import verify_password, create_access_token
+    from app.db.repositories import user_repository
+    
+    try:
+        # Get user
+        user = await user_repository.get_by_email(request.email)
+        if not user:
+            return {"success": False, "message": "Invalid email or password"}
+        
+        # Verify password
+        if not verify_password(request.password, user.get("hashed_password", "")):
+            return {"success": False, "message": "Invalid email or password"}
+        
+        # Generate token
+        user_id = user.get("id")
+        token = create_access_token(data={"sub": user_id})
+        
+        # Update last login
+        if user_id:
+            await user_repository.update_last_login(user_id)
+        
+        return {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "email": user.get("email"),
+                "name": user.get("name", ""),
+                "role": user.get("role", "farmer")
+            }
+        }
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.post("/api/auth/register")
+async def legacy_auth_register(request: LegacyRegisterRequest):
+    """Legacy register endpoint with /api/auth prefix"""
+    from app.core.security import get_password_hash, create_access_token
+    from app.db.repositories import user_repository
+    
+    try:
+        logger.info(f"Register attempt for: {request.email}")
+        
+        # Check if user exists
+        existing = await user_repository.get_by_email(request.email)
+        if existing:
+            logger.info(f"User already exists: {request.email}")
+            return {"success": False, "message": "Email already registered"}
+        
+        # Get name from various possible fields
+        name = request.name or request.full_name or request.username or "User"
+        
+        # Create user
+        logger.info(f"Creating user: {request.email}, name: {name}")
+        hashed_password = get_password_hash(request.password)
+        user_id = await user_repository.create_user(
+            email=request.email,
+            hashed_password=hashed_password,
+            name=name,
+            role="farmer"
+        )
+        
+        logger.info(f"User creation result: {user_id}")
+        
+        if not user_id:
+            return {"success": False, "message": "Failed to create user"}
+        
+        # Generate token
+        token = create_access_token(data={"sub": user_id})
+        
+        return {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "email": request.email,
+                "name": name,
+                "role": "farmer"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Register error: {e}", exc_info=True)
+        return {"success": False, "message": str(e)}
+
+
+@router.post("/api/auth/google")
+async def google_auth(request: GoogleAuthRequest):
+    """
+    Google Sign In endpoint.
+    Verifies the Google ID token and creates/logs in user.
+    """
+    from app.core.security import create_access_token
+    from app.db.repositories import user_repository
+    import httpx
+    
+    try:
+        # Verify Google ID token with Google's API
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://oauth2.googleapis.com/tokeninfo?id_token={request.id_token}"
+            )
+            
+            if response.status_code != 200:
+                return {"success": False, "message": "Invalid Google token"}
+            
+            google_data = response.json()
+            email = google_data.get("email", request.email)
+            name = google_data.get("name", request.name)
+        
+        if not email:
+            return {"success": False, "message": "Email not provided by Google"}
+        
+        # Check if user exists
+        user = await user_repository.get_by_email(email)
+        
+        if user:
+            # User exists - log them in
+            user_id = user.get("id")
+            await user_repository.update_last_login(user_id)
+        else:
+            # Create new user (no password for Google users)
+            user_id = await user_repository.create_user(
+                email=email,
+                hashed_password="",  # Google users don't have password
+                name=name or email.split("@")[0],
+                role="farmer",
+                auth_provider="google"
+            )
+        
+        if not user_id:
+            return {"success": False, "message": "Failed to create/find user"}
+        
+        # Generate token
+        token = create_access_token(data={"sub": user_id})
+        
+        return {
+            "success": True,
+            "token": token,
+            "user": {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "role": "farmer",
+                "photo_url": request.photo_url
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Google auth error: {e}")
+        return {"success": False, "message": str(e)}
 
 
 @router.post("/api/login")
 async def legacy_login(request: LegacyLoginRequest):
-    """Legacy login endpoint - redirects to v1 auth"""
-    from app.api.v1.auth import login
-    from app.schemas import LoginRequest
-    
-    try:
-        result = await login(LoginRequest(email=request.email, password=request.password))
-        return result
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    """Legacy login endpoint - redirects to new endpoint"""
+    return await legacy_auth_login(request)
 
 
 @router.post("/api/register")
 async def legacy_register(request: LegacyRegisterRequest):
-    """Legacy register endpoint - redirects to v1 auth"""
-    from app.api.v1.auth import register
-    from app.schemas import RegisterRequest
-    
-    try:
-        result = await register(RegisterRequest(
-            email=request.email,
-            password=request.password,
-            name=request.name or "User"
-        ))
-        return result
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    """Legacy register endpoint - redirects to new endpoint"""
+    return await legacy_auth_register(request)
 
 
 # ========== Legacy Weather Endpoint ==========

@@ -18,15 +18,23 @@ class UserRepository(FirebaseRepository):
     
     async def get_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Get user by email."""
-        users = await self.query(order_by="email", equal_to=email, limit=1)
-        return users[0] if users else None
+        # Get all users and filter locally (works without index)
+        # For production, add Firebase index for email field
+        all_users = await self.get_all()
+        if all_users:
+            for user_id, user_data in all_users.items():
+                if isinstance(user_data, dict) and user_data.get("email") == email:
+                    user_data["id"] = user_id
+                    return user_data
+        return None
     
     async def create_user(
         self,
         email: str,
         hashed_password: str,
         name: str,
-        role: str = "farmer"
+        role: str = "farmer",
+        auth_provider: str = "email"
     ) -> Optional[str]:
         """Create a new user."""
         user_data = {
@@ -34,6 +42,7 @@ class UserRepository(FirebaseRepository):
             "hashed_password": hashed_password,
             "name": name,
             "role": role,
+            "auth_provider": auth_provider,
             "is_active": True,
             "created_at": datetime.utcnow().isoformat()
         }

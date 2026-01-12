@@ -256,18 +256,22 @@ class FirebaseRepository:
             data["updated_at"] = data["created_at"]
             
             if self.ref is None:
+                logger.warning("Firebase ref is None, using mock mode")
                 return self._mock_push(data)
             
+            logger.info(f"Pushing to Firebase collection: {self.collection}")
             loop = asyncio.get_event_loop()
             new_ref = await loop.run_in_executor(
                 None,
                 lambda: self.ref.push(data)
             )
             
-            return new_ref.key
+            key = new_ref.key
+            logger.info(f"Firebase push successful, key: {key}")
+            return key
             
         except Exception as e:
-            logger.error(f"Firebase push error: {e}")
+            logger.error(f"Firebase push error: {e}", exc_info=True)
             return None
     
     # Mock methods for development without Firebase

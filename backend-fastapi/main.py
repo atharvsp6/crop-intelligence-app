@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
 from app.db import initialize_firebase
 from app.api.v1 import api_router
+from app.api.v1.legacy import router as legacy_router
 from app.services import disease_client, yield_client
 
 settings = get_settings()
@@ -244,6 +245,7 @@ async def metrics():
 
 # Include API routers
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(legacy_router)  # Legacy routes at root level for frontend compatibility
 
 
 if __name__ == "__main__":

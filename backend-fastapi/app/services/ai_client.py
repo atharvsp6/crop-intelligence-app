@@ -164,8 +164,9 @@ class YieldPredictionClient(AIServiceClient):
             logger.error("Yield prediction service timeout")
             return {"success": False, "error": "Service timeout"}
         except httpx.HTTPStatusError as e:
-            logger.error(f"Yield prediction HTTP error: {e}")
-            return {"success": False, "error": f"HTTP error: {e.response.status_code}"}
+            error_detail = e.response.text if e.response else str(e)
+            logger.error(f"Yield prediction HTTP error: {e.response.status_code} - {error_detail}")
+            return {"success": False, "error": f"HTTP error: {e.response.status_code}", "detail": error_detail}
         except Exception as e:
             logger.error(f"Yield prediction error: {e}")
             return {"success": False, "error": str(e)}

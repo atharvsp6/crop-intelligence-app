@@ -49,19 +49,11 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { API_BASE } from '../config'; // Keep API_BASE, but we will fetch the token
 import {
   ResponsiveContainer,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  AreaChart,
-  Area,
   CartesianGrid,
   XAxis,
   YAxis,
   BarChart,
   Bar,
-  Legend,
   Cell,
   Tooltip as RechartsTooltip,
 } from 'recharts';
@@ -776,24 +768,6 @@ const CropPredictor: React.FC = () => {
   }, [form.state, syncStateSelection]);
 
   const disabled = loading || training || !form.crop_type || !form.state || !form.season;
-
-  const nutrientData = useMemo(
-    () => [
-      { name: 'Nitrogen', actual: form.nitrogen, ideal: NUTRIENT_TARGETS.nitrogen },
-      { name: 'Phosphorus', actual: form.phosphorus, ideal: NUTRIENT_TARGETS.phosphorus },
-      { name: 'Potassium', actual: form.potassium, ideal: NUTRIENT_TARGETS.potassium },
-    ],
-    [form.nitrogen, form.phosphorus, form.potassium],
-  );
-
-  const weatherData = useMemo(
-    () => [
-      { metric: 'Temperature', actual: form.temperature, ideal: IDEAL_WEATHER.temperature },
-      { metric: 'Humidity', actual: form.humidity, ideal: IDEAL_WEATHER.humidity },
-      { metric: 'Rainfall', actual: form.rainfall, ideal: IDEAL_WEATHER.rainfall },
-    ],
-    [form.temperature, form.humidity, form.rainfall],
-  );
 
   const featureImportance = useMemo(() => {
     if (!prediction?.feature_importance) return [];

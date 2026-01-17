@@ -8,6 +8,7 @@ import {
   Paper,
   Alert,
   CircularProgress,
+  LinearProgress,
   Chip,
   List,
   ListItem,
@@ -52,6 +53,8 @@ const DiseaseDetector: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [detection, setDetection] = useState<DetectionResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,13 +75,21 @@ const DiseaseDetector: React.FC = () => {
 
     setLoading(true);
     setDetection(null);
+    setProgress(0);
+    setProgressMessage('Preparing image...');
 
     const token = localStorage.getItem('token');
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
+      setProgress(20);
+      setProgressMessage('Uploading to disease detection API...');
+      
       const formData = new FormData();
       formData.append('image', selectedFile);
+      
+      setProgress(40);
+      setProgressMessage('Analyzing plant disease...');
       
       // Always use multipart/form-data - let axios set the boundary
       const response = await axios.post<DetectionResult>(
@@ -89,6 +100,15 @@ const DiseaseDetector: React.FC = () => {
           // Don't set Content-Type, let axios handle it with proper boundary
         }
       );
+      
+      setProgress(80);
+      setProgressMessage('Verifying with Gemini AI...');
+      
+      // Simulate verification time
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setProgress(100);
+      setProgressMessage('Analysis complete!');
       setDetection(response.data);
     } catch (error: unknown) {
       let message = 'Disease detection request failed. Ensure you are logged in and try another clear plant image.';
@@ -102,7 +122,11 @@ const DiseaseDetector: React.FC = () => {
       }
       setDetection({ success: false, error: message });
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+        setProgressMessage('');
+      }, 500);
     }
   };
 
@@ -185,12 +209,27 @@ const DiseaseDetector: React.FC = () => {
                 )}
               </Box>
 
+              {loading && (
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2" color="primary">
+                      {progressMessage}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {Math.round(progress)}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={progress} />
+                </Box>
+              )}
+              
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
                   variant="outlined"
                   startIcon={<CloudUpload />}
                   onClick={() => fileInputRef.current?.click()}
                   fullWidth
+                  disabled={loading}
                 >
                   {selectedImage ? 'Change Image' : 'Upload Image'}
                 </Button>

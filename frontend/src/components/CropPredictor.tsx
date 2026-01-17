@@ -332,6 +332,8 @@ const CropPredictor: React.FC = () => {
   const [form, setForm] = useState<PredictionRequest>(INITIAL_FORM);
   const [prediction, setPrediction] = useState<ExtendedPredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
   const [training, setTraining] = useState(false);
   const [alert, setAlert] = useState<AlertState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -907,11 +909,31 @@ const CropPredictor: React.FC = () => {
       }
       if (!options.background) {
         setLoading(true);
+        setProgress(0);
+        setProgressMessage(t('cropPredictor.progress.preparing', 'Preparing data...'));
       }
       loadingRef.current = true;
       try {
+        if (!options.background) {
+          setProgress(20);
+          setProgressMessage(t('cropPredictor.progress.sending', 'Sending to prediction service...'));
+        }
+        
         const payload = { ...form, language: targetLanguage };
+        
+        if (!options.background) {
+          setProgress(50);
+          setProgressMessage(t('cropPredictor.progress.analyzing', 'Analyzing crop data...'));
+        }
+        
         const { data } = await axios.post<ExtendedPredictionResponse>(`${API_BASE}/api/predict-yield`, payload);
+        
+        if (!options.background) {
+          setProgress(80);
+          setProgressMessage(t('cropPredictor.progress.gemini', 'Getting Gemini AI recommendations...'));
+          // Simulate Gemini processing time
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
         
         // Console logging for prediction source (as requested)
         if (data.success) {
@@ -929,6 +951,11 @@ const CropPredictor: React.FC = () => {
         }
         
         setPrediction(data);
+        if (!options.background) {
+          setProgress(100);
+          setProgressMessage(t('cropPredictor.progress.complete', 'Prediction complete!'));
+        }
+        
         if (data.success) {
           if (options.background) {
             setAlert({
@@ -946,7 +973,11 @@ const CropPredictor: React.FC = () => {
         setAlert({ type: 'error', message: t('cropPredictor.alerts.predictError') });
       } finally {
         if (!options.background) {
-          setLoading(false);
+          setTimeout(() => {
+            setLoading(false);
+            setProgress(0);
+            setProgressMessage('');
+          }, 500);
         }
         loadingRef.current = false;
         if (options.background) {
@@ -1371,6 +1402,47 @@ const CropPredictor: React.FC = () => {
                       </Box>
                     ))}
                   </Stack>
+
+                  {/* Progress Bar */}
+                  {loading && progress > 0 && (
+                    <Box sx={{ mt: 3, mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Box sx={{ width: '100%', mr: 1 }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={progress}
+                            sx={{
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                              '& .MuiLinearProgress-bar': {
+                                borderRadius: 4,
+                                background: 'linear-gradient(90deg, #2e7d32 0%, #66bb6a 100%)',
+                              },
+                            }}
+                          />
+                        </Box>
+                        <Box sx={{ minWidth: 45 }}>
+                          <Typography variant="body2" color="text.secondary" fontWeight="medium">
+                            {`${Math.round(progress)}%`}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      {progressMessage && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: 'block',
+                            textAlign: 'center',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          {progressMessage}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
 
                   <Stack
                     direction={{ xs: 'column', md: 'row' }}

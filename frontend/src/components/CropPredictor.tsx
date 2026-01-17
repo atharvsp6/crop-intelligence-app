@@ -15,6 +15,7 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -269,17 +270,6 @@ const sliderConfigs: Array<{
   },
 ];
 
-const NUTRIENT_TARGETS = {
-  nitrogen: 120,
-  phosphorus: 60,
-  potassium: 60,
-};
-
-const IDEAL_WEATHER = {
-  temperature: 27,
-  humidity: 65,
-  rainfall: 900,
-};
 const STATE_COORDINATES: Record<string, [number, number]> = {
   'Andhra Pradesh': [79.739987, 15.9129],
   Assam: [92.937576, 26.200604],

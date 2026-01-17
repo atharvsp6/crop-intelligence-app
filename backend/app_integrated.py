@@ -486,6 +486,7 @@ Only return the JSON, no other text."""
                 'preventive_measures': ['Ensure proper plant care', 'Monitor regularly'],
                 'immediate_actions': ['Isolate affected plant', 'Remove diseased parts'] if condition.lower() == 'diseased' else []
             },
+            'prediction_source': 'gemini_ai',
             'detection_method': 'gemini_ai_fallback',
             'verification_note': 'Detected using Gemini AI (primary API unavailable)'
         }
@@ -1667,6 +1668,9 @@ def detect_plant_disease():
             confidence = detection.get('prediction', {}).get('confidence', 0)
             
             print(f"[Disease Detection] Custom API - {disease_name} on {crop_name} ({confidence}% confidence)")
+
+            # Tag source as custom API
+            detection['prediction_source'] = 'custom_api'
             
             # Cross-check with Gemini AI if available and confidence is not very high
             gemini_verification = None
@@ -1680,6 +1684,7 @@ def detect_plant_disease():
                     
                     if gemini_verification:
                         detection['gemini_verification'] = gemini_verification
+                        detection['validation_applied'] = True
                         
                         # If predictions don't match significantly, include Gemini analysis
                         if not gemini_verification.get('predictions_match', True):

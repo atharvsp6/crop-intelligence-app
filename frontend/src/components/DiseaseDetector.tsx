@@ -111,6 +111,19 @@ const DiseaseDetector: React.FC = () => {
       setProgress(100);
       setProgressMessage('Analysis complete!');
       setDetection(response.data);
+
+      // Console logging for detection source
+      try {
+        const src = (response.data as any)?.prediction_source;
+        const method = (response.data as any)?.detection_method;
+        if (src === 'gemini_ai' || method === 'gemini_ai_fallback') {
+          console.log('🤖 Disease detection by Gemini AI (fallback)');
+        } else if (src === 'custom_api') {
+          console.log('🧪 Disease detection by Custom API');
+        } else {
+          console.log('ℹ️ Disease detection source unknown');
+        }
+      } catch {}
     } catch (error: unknown) {
       let message = 'Disease detection request failed. Ensure you are logged in and try another clear plant image.';
       if (axios.isAxiosError(error)) {

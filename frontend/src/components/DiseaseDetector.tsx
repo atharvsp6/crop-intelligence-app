@@ -71,6 +71,9 @@ const DiseaseDetector: React.FC = () => {
     setLoading(true);
     setDetection(null);
 
+    const token = localStorage.getItem('token');
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     try {
       // Decide request format (use JSON for now; backend supports both). If data URL length large, still fine.
       const isDataUrl = selectedImage.startsWith('data:image');
@@ -78,20 +81,37 @@ const DiseaseDetector: React.FC = () => {
       let response;
       if (isDataUrl) {
         // Send JSON with base64 string
-        response = await axios.post<DetectionResult>(`${API_BASE}/api/detect-disease`, { image: selectedImage });
+        response = await axios.post<DetectionResult>(
+          `${API_BASE}/api/detect-disease`,
+          { image: selectedImage },
+          { headers: authHeaders }
+        );
       } else {
         const formData = new FormData();
         formData.append('image', selectedImage as any);
-        response = await axios.post<DetectionResult>(`${API_BASE}/api/detect-disease`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        response = await axios.post<DetectionResult>(
+          `${API_BASE}/api/detect-disease`,
+          formData,
+          {
+            headers: {
+              ...authHeaders,
+              'Content-Type': 'multipart/form-data'
+            }
+          }
+        );
       }
       setDetection(response.data);
-    } catch (error) {
-      setDetection({
-        success: false,
-        error: 'Disease detection request failed. Ensure you are logged in and try another clear plant image.',
-      });
+    } catch (error: unknown) {
+      let message = 'Disease detection request failed. Ensure you are logged in and try another clear plant image.';
+      if (axios.isAxiosError(error)) {
+        const backendError = (error.response?.data as any)?.error || (error.response?.data as any)?.message;
+        if (backendError) {
+          message = backendError;
+        } else if (error.response?.status === 401) {
+          message = 'Please log in to analyze plant diseases.';
+        }
+      }
+      setDetection({ success: false, error: message });
     } finally {
       setLoading(false);
     }
@@ -247,7 +267,7 @@ const DiseaseDetector: React.FC = () => {
                       
                       <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                         <Chip
-                          label={`Confidence: ${(detection.prediction?.confidence || 0 * 100).toFixed(1)}%`}
+                          label={`Confidence: ${((detection.prediction?.confidence ?? 0) * 100).toFixed(1)}%`}
                           color="primary"
                           variant="outlined"
                         />

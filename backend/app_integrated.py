@@ -4,13 +4,16 @@ from flask import Flask, request, jsonify
 import sys, os
 import json
 import gc
+import io
+import base64
+import numpy as np
+from PIL import Image
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token
 from datetime import datetime, timedelta
-import os
 from dotenv import load_dotenv
 try:
     import google.generativeai as genai
@@ -19,6 +22,11 @@ except Exception:  # pragma: no cover - optional dependency already in requireme
 
 # Load environment variables FIRST
 load_dotenv()
+
+# Ensure TF Hub cache is writable (avoid user profile permission issues)
+if not os.environ.get("TFHUB_CACHE_DIR"):
+    os.environ["TFHUB_CACHE_DIR"] = os.path.join(CURRENT_DIR, ".tfhub_cache")
+    os.makedirs(os.environ["TFHUB_CACHE_DIR"], exist_ok=True)
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
@@ -33,7 +41,9 @@ from database import get_collection
 from auth import UserManager
 from weather_service import WeatherService
 from dashboard_service import DashboardService
-from chatbot import crop_chatbot
+# Lazy import chatbot to avoid Gemini blocking
+# from chatbot import crop_chatbot
+crop_chatbot = None
 from realtime_market_service import realtime_market_service
 multilingual_import_error = None
 try:
@@ -44,10 +54,8 @@ except Exception as _ie:
     multilingual_import_error = str(_ie)
     print(f"[Multilingual Import] Failed to import multilingual_chatbot module: {_ie}")
 
-# LAZY LOADING: Do NOT import model instances at startup
-# Instead, we'll load them on-demand in the endpoints
-# from colab_style_predictor import colab_style_model  # REMOVED
-# from disease_detector import disease_detector  # REMOVED
+# Disease detection now uses Hugging Face microservice (deployed separately)
+# Local fallback removed - use DEMO_MODE for testing without service
 
 # Initialize financial services and market data
 try:
@@ -71,19 +79,20 @@ def _load_crop_model():
     from colab_style_predictor import ColabStyleCropModel
     return ColabStyleCropModel()
 
-def _load_disease_model():
-    """Lazy loader for disease detection model."""
-    from disease_detector import DiseaseDetector
-    detector = DiseaseDetector()
-    detector.load_model()  # Ensure model is loaded
-    return detector
-
-# Create lazy loaders (don't load models yet)
+# Create lazy loader for crop model only
 crop_model_loader = LazyModelLoader("CropYieldModel", _load_crop_model)
-disease_model_loader = LazyModelLoader("DiseaseDetectionModel", _load_disease_model)
+
+# Disease Detection Microservice Configuration
+# Deploy models/disease_hf/ separately and set this URL
+DISEASE_SERVICE_URL = os.environ.get(
+    "DISEASE_SERVICE_URL",
+    "http://localhost:5002/predict"  # Local development fallback
+)
+DISEASE_SERVICE_TIMEOUT = int(os.environ.get("DISEASE_SERVICE_TIMEOUT", "30"))
 
 print("[Startup] Models configured for lazy loading. Memory usage:")
 log_memory("After imports, before model loading")
+print(f"[Disease Detection] Using microservice at: {DISEASE_SERVICE_URL}")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -1384,7 +1393,10 @@ def _map_frontend_to_colab(d: dict) -> dict:
 @app.route('/api/detect-disease', methods=['POST'])
 @jwt_required()
 def detect_plant_disease():
-    """Disease detection endpoint - Enhanced AI model for plant disease classification - LAZY LOADED."""
+    """
+    Disease detection endpoint - proxies to Hugging Face microservice.
+    Deploy models/disease_hf/ separately and configure DISEASE_SERVICE_URL.
+    """
     try:
         # Check demo mode first
         if is_demo_mode():
@@ -1392,33 +1404,69 @@ def detect_plant_disease():
             return jsonify(get_demo_response('disease_detection'))
         
         user_id = get_jwt_identity()
-        image_data = None
+        
+        # Forward request to disease detection microservice
+        import requests
         
         if 'image' in request.files:
-            image_data = request.files['image'].read()
+            # Forward as multipart file upload
+            image_file = request.files['image']
+            files = {
+                "image": (
+                    image_file.filename,
+                    image_file.read(),
+                    image_file.content_type or 'image/jpeg'
+                )
+            }
+            response = requests.post(
+                DISEASE_SERVICE_URL,
+                files=files,
+                timeout=DISEASE_SERVICE_TIMEOUT
+            )
         else:
+            # Forward as JSON with base64
             data = request.get_json(silent=True) or {}
-            image_data = data.get('image')
+            if not data.get('image'):
+                return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
+            
+            response = requests.post(
+                DISEASE_SERVICE_URL,
+                json=data,
+                headers={'Content-Type': 'application/json'},
+                timeout=DISEASE_SERVICE_TIMEOUT
+            )
         
-        if not image_data:
-            return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
-        
-        # Use context manager for automatic cleanup
-        with disease_model_loader as disease_detector:
-            detection = disease_detector.predict_disease(image_data)
-        
-        # Model is cleaned up automatically here
-        gc.collect()
-        log_memory("After disease detection and cleanup")
+        # Parse response from microservice
+        detection = response.json()
         
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')
+            print(f"[Disease Detection] Success - {detection.get('prediction', {}).get('condition', 'Unknown')}")
+        else:
+            print(f"[Disease Detection] Failure from microservice: {detection.get('error', 'Unknown')}")
         
-        status_code = 200 if detection.get('success') else 400
-        return jsonify(detection), status_code
+        return jsonify(detection), response.status_code
+        
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Disease detection service timeout. Try again or deploy the microservice.'
+        }), 504
+    
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False,
+            'error': f'Cannot connect to disease detection service at {DISEASE_SERVICE_URL}. '
+                     'Deploy models/disease_hf/ and set DISEASE_SERVICE_URL environment variable.'
+        }), 503
+    
     except Exception as e:
-        gc.collect()
-        return jsonify({'error': f'Disease detection failed: {str(e)}'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Disease detection failed: {str(e)}'
+        }), 500
 
 @app.route('/api/financial/roi', methods=['POST'])
 @jwt_required()

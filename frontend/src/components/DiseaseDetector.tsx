@@ -32,6 +32,7 @@ interface DetectionResult {
     condition: string;
     confidence: number;
     is_healthy: boolean;
+    disease?: string;
     severity: string;
   };
   top_predictions?: Array<{
@@ -299,6 +300,12 @@ const DiseaseDetector: React.FC = () => {
                           color="primary"
                           variant="outlined"
                         />
+                        {detection.prediction?.disease && detection.prediction?.disease.toLowerCase() !== 'none' && (
+                          <Chip
+                            label={`Disease: ${detection.prediction?.disease}`}
+                            color="secondary"
+                          />
+                        )}
                         <Chip
                           label={`Severity: ${detection.prediction?.severity}`}
                           color={getSeverityColor(detection.prediction?.severity || 'none')}

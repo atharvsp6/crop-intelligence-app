@@ -431,8 +431,41 @@ Only return the JSON, no other text."""
         response_text = response_text.strip()
         
         gemini_analysis = json.loads(response_text)
+
+        # Normalize and validate fields
+        condition = str(gemini_analysis.get('condition', 'Unknown')).strip().capitalize()
+        disease_name = str(gemini_analysis.get('disease', 'Unknown')).strip()
+
+        # Normalize confidence to ratio (0..1). Accept 0..1 or 0..100 inputs.
+        def _normalize_confidence(val) -> float:
+            try:
+                # If string contains % remove it
+                if isinstance(val, str):
+                    val = val.replace('%', '').strip()
+                num = float(val)
+                # If it's clearly a percentage (>= 1), convert to ratio
+                if num > 1:
+                    num = num / 100.0
+                # Clamp to [0,1]
+                if num < 0:
+                    num = 0.0
+                if num > 1:
+                    num = 1.0
+                return num
+            except Exception:
+                return 0.0
+
+        confidence_ratio = _normalize_confidence(gemini_analysis.get('confidence', 0))
+
+        # If plant is healthy, ensure disease is 'None'
+        if condition.lower() == 'healthy':
+            disease_name = 'None'
+        else:
+            # If diseased but disease missing or 'None', mark as Unknown
+            if not disease_name or disease_name.lower() == 'none':
+                disease_name = 'Unknown'
         
-        print(f"[Gemini Disease Detection] {gemini_analysis.get('plant_type')} - {gemini_analysis.get('disease', 'Healthy')}")
+        print(f"[Gemini Disease Detection] {gemini_analysis.get('plant_type')} - {disease_name}")
         
         # Convert to expected response format
         return {
@@ -440,16 +473,18 @@ Only return the JSON, no other text."""
             'prediction': {
                 'plant_type': gemini_analysis.get('plant_type', 'Unknown'),
                 'crop': gemini_analysis.get('plant_type', 'Unknown'),
-                'condition': gemini_analysis.get('condition', 'Unknown'),
-                'disease': gemini_analysis.get('disease', 'Unknown'),
+                'condition': condition,
+                'disease': disease_name,
                 'severity': gemini_analysis.get('severity', 'None'),
-                'confidence': gemini_analysis.get('confidence', 0),
+                # Confidence returned as ratio 0..1 for UI that multiplies by 100
+                'confidence': confidence_ratio,
+                'is_healthy': condition.lower() == 'healthy',
                 'description': gemini_analysis.get('description', ''),
             },
             'recommendations': {
                 'treatment_options': gemini_analysis.get('recommendations', []),
                 'preventive_measures': ['Ensure proper plant care', 'Monitor regularly'],
-                'immediate_actions': ['Isolate affected plant', 'Remove diseased parts'] if gemini_analysis.get('condition') == 'Diseased' else []
+                'immediate_actions': ['Isolate affected plant', 'Remove diseased parts'] if condition.lower() == 'diseased' else []
             },
             'detection_method': 'gemini_ai_fallback',
             'verification_note': 'Detected using Gemini AI (primary API unavailable)'

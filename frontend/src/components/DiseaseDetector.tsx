@@ -299,7 +299,7 @@ const DiseaseDetector: React.FC = () => {
                       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         {getSeverityIcon(detection.prediction?.severity || 'none')}
                         <Typography variant="h6" sx={{ ml: 1 }}>
-                          {detection.prediction?.plant_type}
+                          {detection.prediction?.plant_type || (detection.prediction as any)?.crop || 'Unknown Plant'}
                         </Typography>
                       </Box>
                       
@@ -307,12 +307,19 @@ const DiseaseDetector: React.FC = () => {
                         {detection.prediction?.condition}
                       </Typography>
                       
-                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                         <Chip
                           label={`Confidence: ${((detection.prediction?.confidence ?? 0) * 100).toFixed(1)}%`}
                           color="primary"
                           variant="outlined"
                         />
+                        {(detection.prediction as any)?.crop && !(detection.prediction as any)?.plant_type && (
+                          <Chip
+                            label={`Crop: ${(detection.prediction as any)?.crop}`}
+                            color="info"
+                            variant="outlined"
+                          />
+                        )}
                         {detection.prediction?.disease && detection.prediction?.disease.toLowerCase() !== 'none' && (
                           <Chip
                             label={`Disease: ${detection.prediction?.disease}`}

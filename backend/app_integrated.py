@@ -1679,24 +1679,65 @@ def detect_plant_disease():
             crop_name = detection.get('prediction', {}).get('crop', 'Unknown')
             confidence = detection.get('prediction', {}).get('confidence', 0)
             
-            print(f"[Disease Detection] Custom API - {disease_name} on {crop_name} ({confidence}% confidence)")
+            # Normalize confidence to 0-1 ratio if it's in percentage (0-100)
+            # Custom API typically returns percentage, but frontend expects ratio
+            if confidence > 1:
+                confidence = confidence / 100.0
+                detection['prediction']['confidence'] = confidence
+            
+            # Ensure plant_type is set (some APIs use 'crop', frontend expects both)
+            if 'plant_type' not in detection.get('prediction', {}):
+                detection['prediction']['plant_type'] = crop_name
+            
+            print(f"[Disease Detection] Custom API - {disease_name} on {crop_name} ({confidence*100:.1f}% confidence)")
 
             # Tag source as custom API
             detection['prediction_source'] = 'custom_api'
             
-            # Cross-check with Gemini AI if available and confidence is not very high
+            # Generate Gemini AI recommendations and verification
             gemini_verification = None
             if yield_recommendation_model and image_data_for_gemini:
                 try:
+                    # Get Gemini verification with recommendations
                     gemini_verification = _verify_disease_with_gemini(
                         crop_name, 
                         disease_name, 
-                        confidence
+                        confidence * 100  # Pass as percentage for Gemini prompt
                     )
                     
                     if gemini_verification:
                         detection['gemini_verification'] = gemini_verification
                         detection['validation_applied'] = True
+                        
+                        # Add Gemini recommendations to response
+                        gemini_recommendations = gemini_verification.get('gemini_recommendations', [])
+                        if gemini_recommendations:
+                            # Merge with existing recommendations or create new ones
+                            if 'recommendations' not in detection:
+                                detection['recommendations'] = {}
+                            
+                            # Add Gemini recommendations as treatment options
+                            existing_treatments = detection.get('recommendations', {}).get('treatment_options', [])
+                            # Combine and deduplicate
+                            all_treatments = list(set(existing_treatments + gemini_recommendations))
+                            detection['recommendations']['treatment_options'] = all_treatments
+                            
+                            # Add basic structure if missing
+                            if 'preventive_measures' not in detection.get('recommendations', {}):
+                                detection['recommendations']['preventive_measures'] = [
+                                    'Maintain proper plant spacing',
+                                    'Ensure good air circulation',
+                                    'Practice crop rotation'
+                                ]
+                            if 'immediate_actions' not in detection.get('recommendations', {}):
+                                if not detection.get('prediction', {}).get('is_healthy', False):
+                                    detection['recommendations']['immediate_actions'] = [
+                                        'Isolate affected plants',
+                                        'Remove diseased plant parts',
+                                        'Monitor closely for spread'
+                                    ]
+                            
+                            print(f"[Disease Detection] Added {len(gemini_recommendations)} Gemini recommendations")
                         
                         # If predictions don't match significantly, include Gemini analysis
                         if not gemini_verification.get('predictions_match', True):

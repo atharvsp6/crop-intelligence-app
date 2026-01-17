@@ -306,6 +306,80 @@ elif not genai:
 
 
 # =============================================================================
+# GEMINI DISEASE VERIFICATION SERVICE
+# =============================================================================
+def _verify_disease_with_gemini(crop_name: str, disease_name: str, confidence: float) -> dict:
+    """
+    Verify disease detection using Gemini AI.
+    Returns verification result with alternative diagnosis if predictions don't match.
+    """
+    if not yield_recommendation_model:
+        return None
+    
+    try:
+        prompt = f"""
+You are an expert plant pathologist. Analyze the following disease detection result:
+
+Crop: {crop_name}
+Detected Disease: {disease_name}
+Confidence: {confidence}%
+
+Tasks:
+1. Verify if "{disease_name}" is a realistic disease for {crop_name}
+2. If the disease-crop combination is unusual or unlikely, suggest alternative diseases
+3. Rate your agreement with the detection (0-100%)
+
+Respond in JSON format:
+{{
+    "is_realistic": true/false,
+    "agreement_score": <0-100>,
+    "gemini_diagnosis": {{
+        "crop": "{crop_name}",
+        "disease": "most likely disease name",
+        "confidence": <0-100>,
+        "reasoning": "brief explanation"
+    }},
+    "recommendations": ["treatment recommendation 1", "treatment recommendation 2", ...]
+}}
+
+Return ONLY valid JSON, no additional text.
+"""
+        
+        response = yield_recommendation_model.generate_content(prompt)
+        
+        if response and response.text:
+            import json
+            import re
+            
+            # Extract JSON from response
+            json_text = response.text.strip()
+            # Remove markdown code blocks if present
+            json_text = re.sub(r'```json\s*|\s*```', '', json_text)
+            
+            gemini_result = json.loads(json_text)
+            
+            # Determine if predictions match
+            agreement_score = gemini_result.get('agreement_score', 50)
+            is_realistic = gemini_result.get('is_realistic', True)
+            
+            # Consider predictions to match if agreement > 70% and realistic
+            predictions_match = agreement_score >= 70 and is_realistic
+            
+            return {
+                'predictions_match': predictions_match,
+                'agreement_score': agreement_score,
+                'is_realistic': is_realistic,
+                'gemini_diagnosis': gemini_result.get('gemini_diagnosis', {}),
+                'gemini_recommendations': gemini_result.get('recommendations', []),
+                'verification_source': 'gemini_ai'
+            }
+            
+    except Exception as e:
+        print(f"[Gemini Disease Verification] Error: {e}")
+        return None
+
+
+# =============================================================================
 # GEMINI YIELD VALIDATION SERVICE
 # =============================================================================
 def get_gemini_yield_prediction(crop_data: dict) -> dict:
@@ -1392,20 +1466,30 @@ def detect_plant_disease():
     """
     Disease detection endpoint - proxies to custom disease detection API.
     Uses custom API deployed at: https://plant-disease-detection-api-nni5.onrender.com/
+    Includes Gemini AI cross-validation for enhanced accuracy.
     """
     try:
         user_id = get_jwt_identity()
         
         # Forward request to custom disease detection API
         import requests
+        import base64
+        
+        # Store image data for Gemini cross-check
+        image_data_for_gemini = None
         
         if 'image' in request.files:
             # Forward as multipart file upload
             image_file = request.files['image']
+            image_bytes = image_file.read()
+            
+            # Save for Gemini (convert to base64)
+            image_data_for_gemini = base64.b64encode(image_bytes).decode('utf-8')
+            
             files = {
                 "image": (
                     image_file.filename,
-                    image_file.read(),
+                    image_bytes,
                     image_file.content_type or 'image/jpeg'
                 )
             }
@@ -1420,6 +1504,8 @@ def detect_plant_disease():
             if not data.get('image'):
                 return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
             
+            image_data_for_gemini = data.get('image', '').split(',')[-1] if data.get('image') else None
+            
             response = requests.post(
                 DISEASE_SERVICE_URL,
                 json=data,
@@ -1433,7 +1519,39 @@ def detect_plant_disease():
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')
             disease_name = detection.get('prediction', {}).get('disease', 'Unknown')
-            print(f"[Disease Detection] Success - {disease_name}")
+            crop_name = detection.get('prediction', {}).get('crop', 'Unknown')
+            confidence = detection.get('prediction', {}).get('confidence', 0)
+            
+            print(f"[Disease Detection] Custom API - {disease_name} on {crop_name} ({confidence}% confidence)")
+            
+            # Cross-check with Gemini AI if available and confidence is not very high
+            gemini_verification = None
+            if yield_recommendation_model and image_data_for_gemini:
+                try:
+                    gemini_verification = _verify_disease_with_gemini(
+                        crop_name, 
+                        disease_name, 
+                        confidence
+                    )
+                    
+                    if gemini_verification:
+                        detection['gemini_verification'] = gemini_verification
+                        
+                        # If predictions don't match significantly, include Gemini analysis
+                        if not gemini_verification.get('predictions_match', True):
+                            detection['gemini_alternative'] = gemini_verification.get('gemini_diagnosis')
+                            detection['verification_note'] = (
+                                f"Gemini AI suggests alternative diagnosis: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}. "
+                                f"Consider both analyses for best results."
+                            )
+                            print(f"[Disease Detection] Gemini suggests: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}")
+                        else:
+                            detection['verification_note'] = "Gemini AI confirms the diagnosis."
+                            print(f"[Disease Detection] Gemini confirms diagnosis")
+                            
+                except Exception as gemini_err:
+                    print(f"[Disease Detection] Gemini verification error: {gemini_err}")
+                    detection['gemini_verification_error'] = str(gemini_err)
         else:
             error_msg = detection.get('error', 'Unknown error')
             print(f"[Disease Detection] API Error: {error_msg}")

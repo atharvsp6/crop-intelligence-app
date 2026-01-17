@@ -379,6 +379,87 @@ Return ONLY valid JSON, no additional text.
         return None
 
 
+def _detect_disease_with_gemini_fallback(image_base64: str, user_id: str) -> dict:
+    """
+    Fallback disease detection using Gemini AI when custom API is unavailable.
+    Analyzes the image directly with Gemini to identify diseases.
+    """
+    if not yield_recommendation_model:
+        return {'success': False, 'error': 'Gemini AI service not available'}
+    
+    try:
+        import base64
+        
+        # Convert base64 to image data if needed
+        if isinstance(image_base64, str) and ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        
+        # Prepare image for Gemini
+        image_bytes = base64.b64decode(image_base64) if isinstance(image_base64, str) else image_base64
+        
+        # Use Gemini to analyze the plant image
+        prompt = """Analyze this plant image and provide a disease detection analysis.
+
+Please provide your response in this EXACT JSON format (no markdown, just raw JSON):
+{
+    "plant_type": "common name of plant or 'Unknown'",
+    "condition": "Healthy/Diseased/Unknown",
+    "disease": "name of disease if diseased, or 'None'",
+    "severity": "None/Mild/Moderate/Severe",
+    "confidence": 0-100,
+    "description": "brief description of findings",
+    "recommendations": ["action 1", "action 2"]
+}
+
+Only return the JSON, no other text."""
+        
+        response = yield_recommendation_model.generate_content(
+            [prompt, {"mime_type": "image/jpeg", "data": image_base64}],
+            generation_config={'temperature': 0.3}
+        )
+        
+        # Parse Gemini response
+        response_text = response.text.strip()
+        
+        # Clean up markdown if present
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]
+        if response_text.startswith('```'):
+            response_text = response_text[3:]
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        gemini_analysis = json.loads(response_text)
+        
+        print(f"[Gemini Disease Detection] {gemini_analysis.get('plant_type')} - {gemini_analysis.get('disease', 'Healthy')}")
+        
+        # Convert to expected response format
+        return {
+            'success': True,
+            'prediction': {
+                'plant_type': gemini_analysis.get('plant_type', 'Unknown'),
+                'crop': gemini_analysis.get('plant_type', 'Unknown'),
+                'condition': gemini_analysis.get('condition', 'Unknown'),
+                'disease': gemini_analysis.get('disease', 'Unknown'),
+                'severity': gemini_analysis.get('severity', 'None'),
+                'confidence': gemini_analysis.get('confidence', 0),
+                'description': gemini_analysis.get('description', ''),
+            },
+            'recommendations': {
+                'treatment_options': gemini_analysis.get('recommendations', []),
+                'preventive_measures': ['Ensure proper plant care', 'Monitor regularly'],
+                'immediate_actions': ['Isolate affected plant', 'Remove diseased parts'] if gemini_analysis.get('condition') == 'Diseased' else []
+            },
+            'detection_method': 'gemini_ai_fallback',
+            'verification_note': 'Detected using Gemini AI (primary API unavailable)'
+        }
+        
+    except Exception as e:
+        print(f"[Gemini Disease Fallback] Error: {e}")
+        return {'success': False, 'error': f'Disease detection failed: {str(e)}'}
+
+
 # =============================================================================
 # GEMINI YIELD VALIDATION SERVICE
 # =============================================================================
@@ -1517,6 +1598,25 @@ def detect_plant_disease():
             )
         
         print(f"[Disease Detection] Custom API Response Status: {response.status_code}")
+        
+        # If custom API returns 422 or other non-2xx, try fallback with Gemini
+        if response.status_code >= 400:
+            print(f"[Disease Detection] Custom API returned {response.status_code}, attempting Gemini-only fallback...")
+            if image_data_for_gemini and yield_recommendation_model:
+                try:
+                    # Use Gemini as fallback for disease detection
+                    detection = _detect_disease_with_gemini_fallback(image_data_for_gemini, user_id)
+                    if detection.get('success'):
+                        return jsonify(detection), 200
+                except Exception as e:
+                    print(f"[Disease Detection] Gemini fallback error: {e}")
+            
+            # If both methods fail, return error
+            print(f"[Disease Detection] Custom API Response Text: {response.text[:500]}")
+            return jsonify({
+                'success': False,
+                'error': f'Disease detection API error (Status {response.status_code}). Please try again.'
+            }), 500
         
         # Parse response from custom disease detection API
         try:

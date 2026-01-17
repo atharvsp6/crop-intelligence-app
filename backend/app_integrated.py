@@ -1607,8 +1607,8 @@ def detect_plant_disease():
             image_data_for_gemini = base64.b64encode(image_bytes).decode('utf-8')
             
             files = {
-                "image": (
-                    image_file.filename,
+                "file": (
+                    image_file.filename or "upload.jpg",
                     image_bytes,
                     image_file.content_type or 'image/jpeg'
                 )
@@ -1619,17 +1619,29 @@ def detect_plant_disease():
                 timeout=DISEASE_SERVICE_TIMEOUT
             )
         else:
-            # Forward as JSON with base64
+            # Forward base64 image as multipart since the custom API expects 'file'
             data = request.get_json(silent=True) or {}
             if not data.get('image'):
                 return jsonify({'error': 'Image is required (file upload or base64 in JSON).'}), 400
             
             image_data_for_gemini = data.get('image', '').split(',')[-1] if data.get('image') else None
-            
+
+            try:
+                image_bytes = base64.b64decode(image_data_for_gemini)
+            except Exception:
+                return jsonify({'error': 'Invalid base64 image data.'}), 400
+
+            files = {
+                "file": (
+                    "upload.jpg",
+                    image_bytes,
+                    'image/jpeg'
+                )
+            }
+
             response = requests.post(
                 DISEASE_SERVICE_URL,
-                json=data,
-                headers={'Content-Type': 'application/json'},
+                files=files,
                 timeout=DISEASE_SERVICE_TIMEOUT
             )
         

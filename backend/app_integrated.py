@@ -54,9 +54,6 @@ except Exception as _ie:
     multilingual_import_error = str(_ie)
     print(f"[Multilingual Import] Failed to import multilingual_chatbot module: {_ie}")
 
-# Disease detection now uses Hugging Face microservice (deployed separately)
-# Local fallback removed - use DEMO_MODE for testing without service
-
 # Initialize financial services and market data
 try:
     from financial_analyzer import financial_analyzer
@@ -82,17 +79,16 @@ def _load_crop_model():
 # Create lazy loader for crop model only
 crop_model_loader = LazyModelLoader("CropYieldModel", _load_crop_model)
 
-# Disease Detection Microservice Configuration
-# Deploy models/disease_hf/ separately and set this URL
+# Disease Detection API - Custom API deployed on Render
 DISEASE_SERVICE_URL = os.environ.get(
     "DISEASE_SERVICE_URL",
-    "http://localhost:5002/predict"  # Local development fallback
+    "https://plant-disease-detection-api-nni5.onrender.com/predict"
 )
 DISEASE_SERVICE_TIMEOUT = int(os.environ.get("DISEASE_SERVICE_TIMEOUT", "30"))
 
 print("[Startup] Models configured for lazy loading. Memory usage:")
 log_memory("After imports, before model loading")
-print(f"[Disease Detection] Using microservice at: {DISEASE_SERVICE_URL}")
+print(f"[Disease Detection] Using custom API at: {DISEASE_SERVICE_URL}")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -1394,18 +1390,13 @@ def _map_frontend_to_colab(d: dict) -> dict:
 @jwt_required()
 def detect_plant_disease():
     """
-    Disease detection endpoint - proxies to Hugging Face microservice.
-    Deploy models/disease_hf/ separately and configure DISEASE_SERVICE_URL.
+    Disease detection endpoint - proxies to custom disease detection API.
+    Uses custom API deployed at: https://plant-disease-detection-api-nni5.onrender.com/
     """
     try:
-        # Check demo mode first
-        if is_demo_mode():
-            print("[Disease Detection] DEMO_MODE enabled, returning sample data")
-            return jsonify(get_demo_response('disease_detection'))
-        
         user_id = get_jwt_identity()
         
-        # Forward request to disease detection microservice
+        # Forward request to custom disease detection API
         import requests
         
         if 'image' in request.files:
@@ -1436,28 +1427,30 @@ def detect_plant_disease():
                 timeout=DISEASE_SERVICE_TIMEOUT
             )
         
-        # Parse response from microservice
+        # Parse response from custom disease detection API
         detection = response.json()
         
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')
-            print(f"[Disease Detection] Success - {detection.get('prediction', {}).get('condition', 'Unknown')}")
+            disease_name = detection.get('prediction', {}).get('disease', 'Unknown')
+            print(f"[Disease Detection] Success - {disease_name}")
         else:
-            print(f"[Disease Detection] Failure from microservice: {detection.get('error', 'Unknown')}")
+            error_msg = detection.get('error', 'Unknown error')
+            print(f"[Disease Detection] API Error: {error_msg}")
         
         return jsonify(detection), response.status_code
-        
+    
     except requests.exceptions.Timeout:
         return jsonify({
             'success': False,
-            'error': 'Disease detection service timeout. Try again or deploy the microservice.'
+            'error': 'Disease detection API request timed out. Try again.'
         }), 504
     
     except requests.exceptions.ConnectionError:
         return jsonify({
             'success': False,
-            'error': f'Cannot connect to disease detection service at {DISEASE_SERVICE_URL}. '
-                     'Deploy models/disease_hf/ and set DISEASE_SERVICE_URL environment variable.'
+            'error': f'Cannot connect to disease detection API at {DISEASE_SERVICE_URL}. '
+                     'Please ensure the API is running and accessible.'
         }), 503
     
     except Exception as e:

@@ -49,6 +49,7 @@ interface DetectionResult {
 
 const DiseaseDetector: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [detection, setDetection] = useState<DetectionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,6 +57,7 @@ const DiseaseDetector: React.FC = () => {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setSelectedImage(e.target?.result as string);
@@ -66,7 +68,7 @@ const DiseaseDetector: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage || !selectedFile) return;
 
     setLoading(true);
     setDetection(null);
@@ -75,31 +77,18 @@ const DiseaseDetector: React.FC = () => {
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
-      // Decide request format (use JSON for now; backend supports both). If data URL length large, still fine.
-      const isDataUrl = selectedImage.startsWith('data:image');
-
-      let response;
-      if (isDataUrl) {
-        // Send JSON with base64 string
-        response = await axios.post<DetectionResult>(
-          `${API_BASE}/api/detect-disease`,
-          { image: selectedImage },
-          { headers: authHeaders }
-        );
-      } else {
-        const formData = new FormData();
-        formData.append('image', selectedImage as any);
-        response = await axios.post<DetectionResult>(
-          `${API_BASE}/api/detect-disease`,
-          formData,
-          {
-            headers: {
-              ...authHeaders,
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        );
-      }
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      
+      // Always use multipart/form-data - let axios set the boundary
+      const response = await axios.post<DetectionResult>(
+        `${API_BASE}/api/detect-disease`,
+        formData,
+        {
+          headers: authHeaders
+          // Don't set Content-Type, let axios handle it with proper boundary
+        }
+      );
       setDetection(response.data);
     } catch (error: unknown) {
       let message = 'Disease detection request failed. Ensure you are logged in and try another clear plant image.';

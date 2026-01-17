@@ -312,6 +312,7 @@ def _verify_disease_with_gemini(crop_name: str, disease_name: str, confidence: f
     """
     Verify disease detection using Gemini AI.
     Returns verification result with alternative diagnosis if predictions don't match.
+    Also checks if the crop identification is completely different.
     """
     if not yield_recommendation_model:
         return None
@@ -325,16 +326,18 @@ Detected Disease: {disease_name}
 Confidence: {confidence}%
 
 Tasks:
-1. Verify if "{disease_name}" is a realistic disease for {crop_name}
-2. If the disease-crop combination is unusual or unlikely, suggest alternative diseases
-3. Rate your agreement with the detection (0-100%)
+1. Verify if "{crop_name}" is the correct crop identification
+2. Verify if "{disease_name}" is a realistic disease for this crop
+3. If the crop identification seems wrong, identify the most likely correct crop
+4. Rate your agreement with the detection (0-100%)
 
 Respond in JSON format:
 {{
     "is_realistic": true/false,
     "agreement_score": <0-100>,
+    "crop_identification_correct": true/false,
     "gemini_diagnosis": {{
-        "crop": "{crop_name}",
+        "crop": "most likely crop name",
         "disease": "most likely disease name",
         "confidence": <0-100>,
         "reasoning": "brief explanation"
@@ -361,14 +364,26 @@ Return ONLY valid JSON, no additional text.
             # Determine if predictions match
             agreement_score = gemini_result.get('agreement_score', 50)
             is_realistic = gemini_result.get('is_realistic', True)
+            crop_identification_correct = gemini_result.get('crop_identification_correct', True)
             
-            # Consider predictions to match if agreement > 70% and realistic
-            predictions_match = agreement_score >= 70 and is_realistic
+            # Get Gemini's crop identification
+            gemini_crop = gemini_result.get('gemini_diagnosis', {}).get('crop', crop_name)
+            
+            # Check if crops are completely different
+            crops_differ = not crop_identification_correct or (
+                gemini_crop.lower().strip() != crop_name.lower().strip() and
+                agreement_score < 50
+            )
+            
+            # Consider predictions to match if agreement > 70% and realistic and crop correct
+            predictions_match = agreement_score >= 70 and is_realistic and crop_identification_correct
             
             return {
                 'predictions_match': predictions_match,
                 'agreement_score': agreement_score,
                 'is_realistic': is_realistic,
+                'crop_identification_correct': crop_identification_correct,
+                'crops_completely_different': crops_differ,
                 'gemini_diagnosis': gemini_result.get('gemini_diagnosis', {}),
                 'gemini_recommendations': gemini_result.get('recommendations', []),
                 'verification_source': 'gemini_ai'
@@ -1709,6 +1724,46 @@ def detect_plant_disease():
                         detection['gemini_verification'] = gemini_verification
                         detection['validation_applied'] = True
                         
+                        # Check if crops are completely different - if so, use Gemini result only
+                        crops_completely_different = gemini_verification.get('crops_completely_different', False)
+                        
+                        if crops_completely_different:
+                            # Replace custom API result with Gemini's diagnosis
+                            gemini_diagnosis = gemini_verification.get('gemini_diagnosis', {})
+                            gemini_crop = gemini_diagnosis.get('crop', 'Unknown')
+                            gemini_disease = gemini_diagnosis.get('disease', 'Unknown')
+                            gemini_confidence_pct = gemini_diagnosis.get('confidence', 0)
+                            gemini_confidence = gemini_confidence_pct / 100.0 if gemini_confidence_pct > 1 else gemini_confidence_pct
+                            
+                            print(f"[Disease Detection] ⚠️ Crop mismatch detected! Custom API: {crop_name}, Gemini: {gemini_crop}")
+                            print(f"[Disease Detection] Using Gemini result: {gemini_disease} on {gemini_crop}")
+                            
+                            # Store original custom API result for reference
+                            detection['custom_api_original'] = {
+                                'crop': crop_name,
+                                'disease': disease_name,
+                                'confidence': confidence
+                            }
+                            
+                            # Replace main prediction with Gemini's result
+                            detection['prediction'] = {
+                                'plant_type': gemini_crop,
+                                'crop': gemini_crop,
+                                'condition': 'Healthy' if gemini_disease.lower() in ['none', 'healthy'] else 'Diseased',
+                                'disease': gemini_disease,
+                                'confidence': gemini_confidence,
+                                'is_healthy': gemini_disease.lower() in ['none', 'healthy'],
+                                'severity': 'None' if gemini_disease.lower() in ['none', 'healthy'] else ('High' if gemini_confidence > 0.8 else 'Medium')
+                            }
+                            
+                            # Update prediction source
+                            detection['prediction_source'] = 'gemini_ai_override'
+                            detection['override_reason'] = f'Crop identification mismatch: Custom API identified as {crop_name}, Gemini identified as {gemini_crop}'
+                            detection['verification_note'] = (
+                                f"⚠️ Significant mismatch detected. Custom API identified {crop_name}, but Gemini AI identified {gemini_crop}. "
+                                f"Using Gemini's analysis for accuracy: {gemini_disease}"
+                            )
+                        
                         # Add Gemini recommendations to response
                         gemini_recommendations = gemini_verification.get('gemini_recommendations', [])
                         if gemini_recommendations:
@@ -1739,15 +1794,15 @@ def detect_plant_disease():
                             
                             print(f"[Disease Detection] Added {len(gemini_recommendations)} Gemini recommendations")
                         
-                        # If predictions don't match significantly, include Gemini analysis
-                        if not gemini_verification.get('predictions_match', True):
+                        # If predictions don't match but crops are similar, show as alternative
+                        if not crops_completely_different and not gemini_verification.get('predictions_match', True):
                             detection['gemini_alternative'] = gemini_verification.get('gemini_diagnosis')
                             detection['verification_note'] = (
                                 f"Gemini AI suggests alternative diagnosis: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}. "
                                 f"Consider both analyses for best results."
                             )
                             print(f"[Disease Detection] Gemini suggests: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}")
-                        else:
+                        elif not crops_completely_different:
                             detection['verification_note'] = "Gemini AI confirms the diagnosis."
                             print(f"[Disease Detection] Gemini confirms diagnosis")
                             

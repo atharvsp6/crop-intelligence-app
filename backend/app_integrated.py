@@ -1475,6 +1475,9 @@ def detect_plant_disease():
         import requests
         import base64
         
+        # Log incoming request details for debugging
+        print(f"[Disease Detection] Incoming request - Content-Type: {request.content_type}, Files: {list(request.files.keys())}, Has image: {'image' in request.files}")
+        
         # Store image data for Gemini cross-check
         image_data_for_gemini = None
         
@@ -1513,8 +1516,14 @@ def detect_plant_disease():
                 timeout=DISEASE_SERVICE_TIMEOUT
             )
         
+        print(f"[Disease Detection] Custom API Response Status: {response.status_code}")
+        
         # Parse response from custom disease detection API
-        detection = response.json()
+        try:
+            detection = response.json()
+        except:
+            print(f"[Disease Detection] Custom API Response Text: {response.text[:500]}")
+            return jsonify({'error': f'Invalid response from disease detection API: Status {response.status_code}'}), response.status_code
         
         if detection.get('success'):
             user_manager.update_user_activity(user_id, 'disease_detection')

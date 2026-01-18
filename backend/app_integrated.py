@@ -85,6 +85,10 @@ DISEASE_SERVICE_URL = os.environ.get(
     "https://plant-disease-detection-api-nni5.onrender.com/predict"
 )
 DISEASE_SERVICE_TIMEOUT = int(os.environ.get("DISEASE_SERVICE_TIMEOUT", "30"))
+# Custom API supported crops (others will use Gemini directly)
+ALLOWED_CUSTOM_CROPS = {
+    'tomato', 'potato', 'corn', 'grape', 'pepper'
+}
 
 print("[Startup] Models configured for lazy loading. Memory usage:")
 log_memory("After imports, before model loading")
@@ -1693,6 +1697,29 @@ def detect_plant_disease():
             disease_name = detection.get('prediction', {}).get('disease', 'Unknown')
             crop_name = detection.get('prediction', {}).get('crop', 'Unknown')
             confidence = detection.get('prediction', {}).get('confidence', 0)
+
+            # If crop not supported by custom API, switch to Gemini detection directly
+            crop_key = str(crop_name).lower().strip()
+            if crop_key and crop_key not in ALLOWED_CUSTOM_CROPS:
+                print(f"[Disease Detection] Crop '{crop_name}' not supported by custom API. Using Gemini directly.")
+                if yield_recommendation_model and image_data_for_gemini:
+                    try:
+                        gemini_detection = _detect_disease_with_gemini_fallback(image_data_for_gemini, user_id)
+                        if gemini_detection.get('success'):
+                            gemini_detection['prediction_source'] = 'gemini_ai_override'
+                            gemini_detection['override_reason'] = (
+                                f"Crop '{crop_name}' not supported by custom API; using Gemini AI"
+                            )
+                            return jsonify(gemini_detection), 200
+                    except Exception as gem_err:
+                        print(f"[Disease Detection] Gemini direct detection error: {gem_err}")
+
+                # If Gemini failed, return custom API response but flag warning
+                detection['warning'] = (
+                    f"Crop '{crop_name}' not supported by custom API. Gemini fallback unavailable."
+                )
+                detection['prediction_source'] = 'custom_api_unsupported_crop'
+                return jsonify(detection), response.status_code
             
             # Normalize confidence to 0-1 ratio if it's in percentage (0-100)
             # Custom API typically returns percentage, but frontend expects ratio
@@ -1724,18 +1751,23 @@ def detect_plant_disease():
                         detection['gemini_verification'] = gemini_verification
                         detection['validation_applied'] = True
                         
-                        # Check if crops are completely different - if so, use Gemini result only
+                        # Evaluate mismatches (crop or disease) to decide override
                         crops_completely_different = gemini_verification.get('crops_completely_different', False)
-                        
-                        if crops_completely_different:
+                        gemini_diagnosis = gemini_verification.get('gemini_diagnosis', {})
+                        gemini_crop = gemini_diagnosis.get('crop', crop_name)
+                        gemini_disease = gemini_diagnosis.get('disease', disease_name)
+                        gemini_confidence_pct = gemini_diagnosis.get('confidence', 0)
+                        gemini_confidence = gemini_confidence_pct / 100.0 if gemini_confidence_pct > 1 else gemini_confidence_pct
+
+                        disease_mismatch = (
+                            str(gemini_disease).lower().strip() != str(disease_name).lower().strip()
+                        )
+
+                        should_override = crops_completely_different or disease_mismatch or not gemini_verification.get('predictions_match', True)
+
+                        if should_override:
                             # Replace custom API result with Gemini's diagnosis
-                            gemini_diagnosis = gemini_verification.get('gemini_diagnosis', {})
-                            gemini_crop = gemini_diagnosis.get('crop', 'Unknown')
-                            gemini_disease = gemini_diagnosis.get('disease', 'Unknown')
-                            gemini_confidence_pct = gemini_diagnosis.get('confidence', 0)
-                            gemini_confidence = gemini_confidence_pct / 100.0 if gemini_confidence_pct > 1 else gemini_confidence_pct
-                            
-                            print(f"[Disease Detection] ⚠️ Crop mismatch detected! Custom API: {crop_name}, Gemini: {gemini_crop}")
+                            print(f"[Disease Detection] ⚠️ Gemini override triggered. Crop mismatch: {crops_completely_different}, Disease mismatch: {disease_mismatch}")
                             print(f"[Disease Detection] Using Gemini result: {gemini_disease} on {gemini_crop}")
                             
                             # Store original custom API result for reference
@@ -1749,19 +1781,22 @@ def detect_plant_disease():
                             detection['prediction'] = {
                                 'plant_type': gemini_crop,
                                 'crop': gemini_crop,
-                                'condition': 'Healthy' if gemini_disease.lower() in ['none', 'healthy'] else 'Diseased',
+                                'condition': 'Healthy' if str(gemini_disease).lower() in ['none', 'healthy'] else 'Diseased',
                                 'disease': gemini_disease,
                                 'confidence': gemini_confidence,
-                                'is_healthy': gemini_disease.lower() in ['none', 'healthy'],
-                                'severity': 'None' if gemini_disease.lower() in ['none', 'healthy'] else ('High' if gemini_confidence > 0.8 else 'Medium')
+                                'is_healthy': str(gemini_disease).lower() in ['none', 'healthy'],
+                                'severity': 'None' if str(gemini_disease).lower() in ['none', 'healthy'] else ('High' if gemini_confidence > 0.8 else 'Medium')
                             }
                             
                             # Update prediction source
                             detection['prediction_source'] = 'gemini_ai_override'
-                            detection['override_reason'] = f'Crop identification mismatch: Custom API identified as {crop_name}, Gemini identified as {gemini_crop}'
+                            detection['override_reason'] = (
+                                f"Override because Gemini diagnosis differs. Custom: {crop_name} / {disease_name}; "
+                                f"Gemini: {gemini_crop} / {gemini_disease}"
+                            )
                             detection['verification_note'] = (
-                                f"⚠️ Significant mismatch detected. Custom API identified {crop_name}, but Gemini AI identified {gemini_crop}. "
-                                f"Using Gemini's analysis for accuracy: {gemini_disease}"
+                                "⚠️ Gemini AI override: Diagnosis differs from custom API. "
+                                f"Gemini suggests {gemini_disease} on {gemini_crop}."
                             )
                         
                         # Add Gemini recommendations to response
@@ -1794,17 +1829,18 @@ def detect_plant_disease():
                             
                             print(f"[Disease Detection] Added {len(gemini_recommendations)} Gemini recommendations")
                         
-                        # If predictions don't match but crops are similar, show as alternative
-                        if not crops_completely_different and not gemini_verification.get('predictions_match', True):
-                            detection['gemini_alternative'] = gemini_verification.get('gemini_diagnosis')
-                            detection['verification_note'] = (
-                                f"Gemini AI suggests alternative diagnosis: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}. "
-                                f"Consider both analyses for best results."
-                            )
-                            print(f"[Disease Detection] Gemini suggests: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}")
-                        elif not crops_completely_different:
-                            detection['verification_note'] = "Gemini AI confirms the diagnosis."
-                            print(f"[Disease Detection] Gemini confirms diagnosis")
+                        # If no override occurred and predictions match, note confirmation
+                        if not should_override:
+                            if not gemini_verification.get('predictions_match', True):
+                                detection['gemini_alternative'] = gemini_verification.get('gemini_diagnosis')
+                                detection['verification_note'] = (
+                                    f"Gemini AI suggests alternative diagnosis: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}. "
+                                    f"Consider both analyses for best results."
+                                )
+                                print(f"[Disease Detection] Gemini suggests: {gemini_verification.get('gemini_diagnosis', {}).get('disease', 'Unknown')}")
+                            else:
+                                detection['verification_note'] = "Gemini AI confirms the diagnosis."
+                                print(f"[Disease Detection] Gemini confirms diagnosis")
                             
                 except Exception as gemini_err:
                     print(f"[Disease Detection] Gemini verification error: {gemini_err}")

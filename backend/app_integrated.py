@@ -126,7 +126,9 @@ allowed_origin_set = {
         "https://crop-intelligence-app.vercel.app",
         "https://www.crop-intelligence-app.vercel.app",
         "https://crop-intelligence-app-production.up.railway.app",
-        "https://crop-intelligence-app-az6b.onrender.com"
+        "https://crop-intelligence-app-az6b.onrender.com",
+        "https://yieldwise.vercel.app",
+        "https://crop-intelligence-api.azurewebsites.net",
     ]
     if origin
 }
@@ -141,6 +143,19 @@ if preview_origins:
         normalized = _normalize_origin(preview_origin.strip())
         if normalized:
             allowed_origin_set.add(normalized)
+
+
+def _is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed, including dynamic Vercel preview URLs."""
+    if not origin:
+        return False
+    normalized = _normalize_origin(origin)
+    if normalized in allowed_origin_set:
+        return True
+    # Allow any Vercel preview deployment for this project
+    if normalized.endswith('.vercel.app'):
+        return True
+    return False
 
 
 # Build CORS config to explicitly allow origins and headers for preflight requests
@@ -177,8 +192,7 @@ def after_request(response):
     origin = request.headers.get('Origin')
     if origin:
         # Check if origin is allowed
-        normalized_origin = _normalize_origin(origin)
-        if normalized_origin in allowed_origin_set:
+        if _is_allowed_origin(origin):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
@@ -197,8 +211,7 @@ def handle_preflight():
     if request.method == 'OPTIONS':
         origin = request.headers.get('Origin')
         if origin:
-            normalized_origin = _normalize_origin(origin)
-            if normalized_origin in allowed_origin_set:
+            if _is_allowed_origin(origin):
                 response = app.make_default_options_response()
                 response.headers['Access-Control-Allow-Origin'] = origin
                 response.headers['Access-Control-Allow-Credentials'] = 'true'

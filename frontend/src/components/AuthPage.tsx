@@ -187,7 +187,6 @@ const AuthPage: React.FC = () => {
       setLoading(false);
     }
   };
-  };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

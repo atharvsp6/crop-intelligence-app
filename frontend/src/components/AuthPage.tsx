@@ -123,13 +123,14 @@ const AuthPage: React.FC = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleGoogleLoginSuccess = async (credentialResponse: any) => {
+  const handleGoogleLoginSuccess = async (tokenResponse: any) => {
     setLoading(true);
     setError('');
 
     try {
+      // useGoogleLogin with implicit flow returns access_token, not credential
       const response = await axios.post(`${API_BASE}/api/auth/google-login`, {
-        idToken: credentialResponse.credential,
+        accessToken: tokenResponse.access_token,
       });
 
       if (response.data.success) {

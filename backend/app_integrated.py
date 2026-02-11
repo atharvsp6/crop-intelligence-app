@@ -709,11 +709,14 @@ def google_login():
     try:
         data = request.get_json()
         
-        if not data.get('idToken'):
-            return jsonify({'error': 'Google ID token required'}), 400
+        access_token = data.get('accessToken')
+        id_token = data.get('idToken')
+        
+        if not access_token and not id_token:
+            return jsonify({'error': 'Google token required (accessToken or idToken)'}), 400
         
         # Authenticate with Google
-        result = user_manager.google_auth(data['idToken'])
+        result = user_manager.google_auth_token(access_token=access_token, id_token=id_token)
         
         if result['success']:
             return jsonify({

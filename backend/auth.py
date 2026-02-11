@@ -342,45 +342,61 @@ class UserManager:
             print(f"Error updating user activity: {e}")
             return {'success': False, 'error': str(e)}
     
-    def google_auth(self, id_token):
-        """Authenticate user with Google OAuth token"""
+    def google_auth_token(self, access_token=None, id_token=None):
+        """Authenticate user with Google OAuth access_token or id_token"""
         try:
             import json
             import base64
+            import requests as http_requests
             
-            # Decode JWT token from @react-oauth/google
-            # The frontend library has already verified the token with Google
-            # We just need to extract the user info safely
-            try:
-                # Decode JWT manually (header.payload.signature)
-                parts = id_token.split('.')
-                if len(parts) != 3:
-                    return {'success': False, 'error': 'Invalid token format'}
-                
-                # Decode the payload (add padding if needed)
-                payload = parts[1]
-                padding = 4 - len(payload) % 4
-                if padding != 4:
-                    payload += '=' * padding
-                
-                decoded = base64.urlsafe_b64decode(payload)
-                idinfo = json.loads(decoded)
-                
-                # Verify the token came from Google
-                if idinfo.get('iss') not in ['https://accounts.google.com', 'accounts.google.com']:
-                    return {'success': False, 'error': 'Token not from Google'}
-                
-            except Exception as decode_error:
-                return {'success': False, 'error': f'Failed to decode token: {str(decode_error)}'}
+            email = None
+            name = ''
+            google_id = None
             
-            # Extract user info from token
-            email = idinfo.get('email')
+            if access_token:
+                # Use access_token to call Google userinfo API
+                try:
+                    resp = http_requests.get(
+                        'https://www.googleapis.com/oauth2/v3/userinfo',
+                        headers={'Authorization': f'Bearer {access_token}'},
+                        timeout=10
+                    )
+                    if resp.status_code != 200:
+                        return {'success': False, 'error': f'Google userinfo API returned {resp.status_code}'}
+                    
+                    userinfo = resp.json()
+                    email = userinfo.get('email')
+                    name = userinfo.get('name', '')
+                    google_id = userinfo.get('sub')
+                except Exception as api_error:
+                    return {'success': False, 'error': f'Failed to verify access token: {str(api_error)}'}
+            
+            elif id_token:
+                # Decode JWT id_token (header.payload.signature)
+                try:
+                    parts = id_token.split('.')
+                    if len(parts) != 3:
+                        return {'success': False, 'error': 'Invalid token format'}
+                    
+                    payload = parts[1]
+                    padding = 4 - len(payload) % 4
+                    if padding != 4:
+                        payload += '=' * padding
+                    
+                    decoded = base64.urlsafe_b64decode(payload)
+                    idinfo = json.loads(decoded)
+                    
+                    if idinfo.get('iss') not in ['https://accounts.google.com', 'accounts.google.com']:
+                        return {'success': False, 'error': 'Token not from Google'}
+                    
+                    email = idinfo.get('email')
+                    name = idinfo.get('name', '')
+                    google_id = idinfo.get('sub')
+                except Exception as decode_error:
+                    return {'success': False, 'error': f'Failed to decode token: {str(decode_error)}'}
+            
             if not email:
                 return {'success': False, 'error': 'No email in token'}
-            
-            name = idinfo.get('name', '')
-            google_id = idinfo.get('sub')
-            
             if not google_id:
                 return {'success': False, 'error': 'No user ID in token'}
             

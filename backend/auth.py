@@ -341,6 +341,126 @@ class UserManager:
         except Exception as e:
             print(f"Error updating user activity: {e}")
             return {'success': False, 'error': str(e)}
+    
+    def google_auth(self, id_token):
+        """Authenticate user with Google OAuth token"""
+        try:
+            from google.auth.transport import requests
+            from google.oauth2 import id_token
+            
+            # Verify the token with Google
+            request_obj = requests.Request()
+            
+            try:
+                # Verify the token (you should verify against your Google Client ID)
+                # For now, we'll do a basic verification
+                idinfo = id_token.verify_oauth2_token(
+                    id_token, 
+                    request_obj, 
+                    os.environ.get('GOOGLE_CLIENT_ID', '')
+                )
+                
+                # Token is valid
+                email = idinfo['email']
+                name = idinfo.get('name', '')
+                picture = idinfo.get('picture', '')
+                google_id = idinfo['sub']
+                
+                # Check if user already exists
+                existing_user = self.users_collection.find_one({'email': email.lower()})
+                
+                if existing_user:
+                    # User exists, update Google ID if not set
+                    if not existing_user.get('google_id'):
+                        self.users_collection.update_one(
+                            {'_id': existing_user['_id']},
+                            {'$set': {'google_id': google_id}}
+                        )
+                    
+                    # Update last login
+                    self.users_collection.update_one(
+                        {'_id': existing_user['_id']},
+                        {'$set': {'last_login': datetime.utcnow()}}
+                    )
+                    
+                    # Generate JWT token
+                    token = self.generate_jwt_token(existing_user['_id'])
+                    
+                    return {
+                        'success': True,
+                        'user': {
+                            'id': str(existing_user['_id']),
+                            'username': existing_user.get('username', ''),
+                            'email': existing_user['email'],
+                            'full_name': existing_user.get('full_name', name),
+                            'location': existing_user.get('location'),
+                            'profile': existing_user.get('profile', {}),
+                            'stats': existing_user.get('stats', {})
+                        },
+                        'token': token
+                    }
+                else:
+                    # Create new user from Google info
+                    # Generate username from email
+                    username = email.split('@')[0]
+                    counter = 1
+                    original_username = username
+                    
+                    # Ensure username is unique
+                    while self.users_collection.find_one({'username': username.lower()}):
+                        username = f"{original_username}{counter}"
+                        counter += 1
+                    
+                    user_data = {
+                        'username': username.lower().strip(),
+                        'email': email.lower().strip(),
+                        'google_id': google_id,
+                        'full_name': name.strip(),
+                        'location': None,
+                        'farm_size': '',
+                        'primary_crops': [],
+                        'created_at': datetime.utcnow(),
+                        'last_login': datetime.utcnow(),
+                        'is_active': True,
+                        'profile': {
+                            'farm_size_acres': '',
+                            'primary_crops': [],
+                            'experience_years': None,
+                            'farming_type': None
+                        },
+                        'stats': {
+                            'predictions_made': 0,
+                            'forum_posts': 0,
+                            'chat_conversations': 0,
+                            'diseases_detected': 0
+                        }
+                    }
+                    
+                    result = self.users_collection.insert_one(user_data)
+                    
+                    # Generate JWT token
+                    token = self.generate_jwt_token(result.inserted_id)
+                    
+                    return {
+                        'success': True,
+                        'user': {
+                            'id': str(result.inserted_id),
+                            'username': username,
+                            'email': email,
+                            'full_name': name,
+                            'location': None,
+                            'profile': user_data['profile'],
+                            'stats': user_data['stats']
+                        },
+                        'token': token
+                    }
+            
+            except ValueError as e:
+                # Token verification failed
+                return {'success': False, 'error': f'Invalid Google token: {str(e)}'}
+        
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
 
 # Initialize user manager instance
 user_manager = UserManager()

@@ -703,6 +703,31 @@ def login():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/auth/google-login', methods=['POST'])
+def google_login():
+    """Authenticate user with Google OAuth token"""
+    try:
+        data = request.get_json()
+        
+        if not data.get('idToken'):
+            return jsonify({'error': 'Google ID token required'}), 400
+        
+        # Authenticate with Google
+        result = user_manager.google_auth(data['idToken'])
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': 'Google login successful',
+                'token': result['token'],
+                'user': result['user']
+            }), 200
+        else:
+            return jsonify(result), 401
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/auth/verify', methods=['GET'])
 @jwt_required()
 def verify_token():

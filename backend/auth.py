@@ -346,7 +346,7 @@ class UserManager:
         """Authenticate user with Google OAuth token"""
         try:
             from google.auth.transport import requests
-            from google.oauth2 import id_token
+            from google.oauth2 import id_token as id_token_module
             
             # Verify the token with Google
             request_obj = requests.Request()
@@ -354,7 +354,7 @@ class UserManager:
             try:
                 # Verify the token (you should verify against your Google Client ID)
                 # For now, we'll do a basic verification
-                idinfo = id_token.verify_oauth2_token(
+                idinfo = id_token_module.verify_oauth2_token(
                     id_token, 
                     request_obj, 
                     os.environ.get('GOOGLE_CLIENT_ID', '')

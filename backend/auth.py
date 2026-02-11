@@ -475,49 +475,6 @@ class UserManager:
         
         except Exception as e:
             return {'success': False, 'error': str(e)}
-                        'primary_crops': [],
-                        'created_at': datetime.utcnow(),
-                        'last_login': datetime.utcnow(),
-                        'is_active': True,
-                        'profile': {
-                            'farm_size_acres': '',
-                            'primary_crops': [],
-                            'experience_years': None,
-                            'farming_type': None
-                        },
-                        'stats': {
-                            'predictions_made': 0,
-                            'forum_posts': 0,
-                            'chat_conversations': 0,
-                            'diseases_detected': 0
-                        }
-                    }
-                    
-                    result = self.users_collection.insert_one(user_data)
-                    
-                    # Generate JWT token
-                    token = self.generate_jwt_token(result.inserted_id)
-                    
-                    return {
-                        'success': True,
-                        'user': {
-                            'id': str(result.inserted_id),
-                            'username': username,
-                            'email': email,
-                            'full_name': name,
-                            'location': None,
-                            'profile': user_data['profile'],
-                            'stats': user_data['stats']
-                        },
-                        'token': token
-                    }
-            
-            except ValueError as e:
-                # Token verification failed
-                return {'success': False, 'error': f'Invalid Google token: {str(e)}'}
-        
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
 
 # Initialize user manager instance
 user_manager = UserManager()

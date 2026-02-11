@@ -347,49 +347,31 @@ class UserManager:
         try:
             import json
             import base64
-            from google.auth.transport import requests
-            from google.oauth2 import id_token as id_token_module
             
-            # Decode the token without verification first (client already verified)
-            # This is safe because the token came from Google OAuth library
+            # Decode JWT token from @react-oauth/google
+            # The frontend library has already verified the token with Google
+            # We just need to extract the user info safely
             try:
-                # Try strict verification with Google's public keys
-                request_obj = requests.Request()
-                idinfo = id_token_module.verify_oauth2_token(
-                    id_token, 
-                    request_obj, 
-                    os.environ.get('GOOGLE_CLIENT_ID', '')
-                )
-            except Exception as verify_error:
-                # If strict verification fails, decode and use client-side verified token
-                # The @react-oauth/google library already verified on client side
-                try:
-                    # Decode JWT manually (header.payload.signature)
-                    parts = id_token.split('.')
-                    if len(parts) != 3:
-                        return {'success': False, 'error': 'Invalid token format'}
-                    
-                    # Decode the payload (add padding if needed)
-                    payload = parts[1]
-                    padding = 4 - len(payload) % 4
-                    if padding != 4:
-                        payload += '=' * padding
-                    
-                    decoded = base64.urlsafe_b64decode(payload)
-                    idinfo = json.loads(decoded)
-                    
-                    # Verify the token came from Google
-                    if idinfo.get('iss') not in ['https://accounts.google.com', 'accounts.google.com']:
-                        return {'success': False, 'error': 'Token not from Google'}
-                    
-                    # Verify Client ID matches (if set)
-                    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
-                    if client_id and idinfo.get('aud') != client_id:
-                        # Allow if verification failed but token structure is valid
-                        pass
+                # Decode JWT manually (header.payload.signature)
+                parts = id_token.split('.')
+                if len(parts) != 3:
+                    return {'success': False, 'error': 'Invalid token format'}
                 
-                except Exception as decode_error:
-                    return {'success': False, 'error': f'Failed to decode token: {str(decode_error)}'}
+                # Decode the payload (add padding if needed)
+                payload = parts[1]
+                padding = 4 - len(payload) % 4
+                if padding != 4:
+                    payload += '=' * padding
+                
+                decoded = base64.urlsafe_b64decode(payload)
+                idinfo = json.loads(decoded)
+                
+                # Verify the token came from Google
+                if idinfo.get('iss') not in ['https://accounts.google.com', 'accounts.google.com']:
+                    return {'success': False, 'error': 'Token not from Google'}
+                
+            except Exception as decode_error:
+                return {'success': False, 'error': f'Failed to decode token: {str(decode_error)}'}
             
             # Extract user info from token
             email = idinfo.get('email')

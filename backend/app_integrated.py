@@ -188,32 +188,58 @@ def _is_allowed_origin(origin: str) -> bool:
     return False
 
 
-# Configure CORS with dynamic origin checking
-# We don't use static origins list since we support wildcard domains like *.vercel.app
-# Instead, we use the after_request handler to set headers dynamically
+# =============================================================================
+# CORS Configuration
+# =============================================================================
+# Security Model:
+# 1. Flask-CORS is configured with wildcard origins for initial processing
+# 2. Credentials (cookies, auth headers) are DISABLED at the CORS extension level
+# 3. The after_request handler validates origins against:
+#    - Explicitly configured origins (ALLOWED_ORIGINS, FRONTEND_URL)
+#    - Wildcard domains (*.vercel.app, *.azurewebsites.net, *.onrender.com)
+# 4. Only validated origins receive Access-Control-Allow-Credentials: true
+# 5. This prevents unauthorized origins from accessing authenticated endpoints
+#
+# This approach allows:
+# - Dynamic deployment URLs (preview deployments, multiple environments)
+# - Secure credential handling (only for validated origins)
+# - Flexible configuration (no code changes to switch backends)
+# =============================================================================
+
+# Configure CORS - origins are validated dynamically in after_request
 CORS(
     app,
     resources={r"/*": {"origins": "*"}},
-    supports_credentials=False  # Will be set dynamically in after_request
+    supports_credentials=False,  # Credentials enabled only in after_request after origin validation
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
 )
 
 # Add CORS debugging for all requests
 @app.after_request
 def after_request(response):
-    """Add CORS headers to all responses and log for debugging."""
+    """
+    Add CORS headers to all responses after validating origin.
+    
+    Security: Only origins that pass _is_allowed_origin() check receive
+    Access-Control-Allow-Credentials: true, preventing unauthorized access.
+    """
     origin = request.headers.get('Origin')
     if origin:
         # Check if origin is allowed
         if _is_allowed_origin(origin):
+            # Only set credentials header for validated origins
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, Origin'
             response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
-            print(f"[CORS] Allowed request from: {origin}")
+            print(f"[CORS] ✓ Allowed request from: {origin}")
         else:
-            print(f"[CORS] ⚠️ BLOCKED request from: {origin} (not in allowed list)")
-            print(f"[CORS] Allowed origins: {sorted(allowed_origin_set)}")
+            # Origin not allowed - no credentials header sent
+            print(f"[CORS] ✗ BLOCKED request from: {origin}")
+            print(f"[CORS]   Allowed patterns: *.vercel.app, *.azurewebsites.net, *.onrender.com")
+            print(f"[CORS]   Configured origins: {sorted(allowed_origin_set)}")
     return response
 
 # Global OPTIONS handler for all preflight requests

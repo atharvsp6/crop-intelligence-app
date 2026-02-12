@@ -38,7 +38,7 @@ def check_configuration():
     optional_vars = {
         'FRONTEND_URL': 'Primary frontend URL',
         'ALLOWED_ORIGINS': 'Additional allowed CORS origins',
-        'REACT_APP_GOOGLE_CLIENT_ID': 'Google OAuth Client ID',
+        'GEMINI_API_KEY': 'Google Gemini API key',
     }
     
     all_good = True

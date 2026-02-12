@@ -131,6 +131,8 @@ const AuthPage: React.FC = () => {
       // useGoogleLogin with implicit flow returns access_token, not credential
       const response = await axios.post(`${API_BASE}/api/auth/google-login`, {
         accessToken: tokenResponse.access_token,
+      }, {
+        timeout: 10000, // 10 second timeout
       });
 
       if (response.data.success) {
@@ -146,7 +148,23 @@ const AuthPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Google login error:', error);
-      setError(error.response?.data?.message || error.response?.data?.error || 'Google login failed');
+      
+      // Provide detailed error message
+      let errorMessage = 'Google login failed. ';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. Please check your internet connection or try email/password login.';
+      } else if (error.response?.status === 401) {
+        errorMessage += 'Google authentication failed. Please try email/password login instead.';
+      } else if (error.response?.status === 500) {
+        errorMessage += 'Server error. Please try email/password login instead.';
+      } else if (error.message?.includes('CORS') || error.message?.includes('Network Error')) {
+        errorMessage += 'Connection error. Please try email/password login below.';
+      } else {
+        errorMessage += (error.response?.data?.message || error.response?.data?.error || 'Please try email/password login instead.');
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -154,8 +172,9 @@ const AuthPage: React.FC = () => {
 
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleLoginSuccess,
-    onError: () => {
-      setError('Google login failed. Please try again.');
+    onError: (error) => {
+      console.error('Google OAuth error:', error);
+      setError('Google sign-in was cancelled or failed. Please use email/password login below.');
     },
     flow: 'implicit',
   });
@@ -169,6 +188,8 @@ const AuthPage: React.FC = () => {
       const response = await axios.post(`${API_BASE}/api/auth/login`, {
         email: loginForm.email,
         password: loginForm.password,
+      }, {
+        timeout: 10000, // 10 second timeout
       });
 
       if (response.data.success) {
@@ -183,7 +204,23 @@ const AuthPage: React.FC = () => {
         }, 1500);
       }
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Login failed');
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Login failed. ';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. Please check your internet connection.';
+      } else if (error.response?.status === 401) {
+        errorMessage += 'Invalid email or password.';
+      } else if (error.response?.status === 500) {
+        errorMessage += 'Server error. Please try again later.';
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage += 'Cannot connect to server. Please check your backend URL.';
+      } else {
+        errorMessage += (error.response?.data?.message || error.response?.data?.error || 'Please try again.');
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -206,11 +243,13 @@ const AuthPage: React.FC = () => {
     setLoading(true);
 
     try {
-  const response = await axios.post(`${API_BASE}/api/auth/register`, {
+      const response = await axios.post(`${API_BASE}/api/auth/register`, {
         username: registerForm.name,
         email: registerForm.email,
         password: registerForm.password,
         full_name: registerForm.name,
+      }, {
+        timeout: 10000, // 10 second timeout
       });
 
       if (response.data.success) {
@@ -219,9 +258,23 @@ const AuthPage: React.FC = () => {
         setRegisterForm({ name: '', email: '', password: '', confirmPassword: '' });
       }
     } catch (error: any) {
-      console.log('Registration error:', error);
-      console.log('Error response:', error.response);
-      setError(error.response?.data?.message || error.response?.data?.error || 'Registration failed');
+      console.error('Registration error:', error);
+      
+      let errorMessage = 'Registration failed. ';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage += 'Request timed out. Please check your internet connection.';
+      } else if (error.response?.status === 400) {
+        errorMessage += (error.response?.data?.error || 'Invalid input. Please check your details.');
+      } else if (error.response?.status === 500) {
+        errorMessage += 'Server error. Please try again later.';
+      } else if (error.message?.includes('Network Error')) {
+        errorMessage += 'Cannot connect to server. Please check your backend URL.';
+      } else {
+        errorMessage += (error.response?.data?.message || error.response?.data?.error || 'Please try again.');
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

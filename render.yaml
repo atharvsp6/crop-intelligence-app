@@ -1,0 +1,102 @@
+# Render Blueprint for Crop Intelligence API
+# This file can be used to deploy the backend to Render
+# See: https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API Service
+  - type: web
+    name: crop-intelligence-api
+    runtime: python
+    plan: free  # Change to 'starter' or higher for production
+    region: oregon  # Choose closest region to your users
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --threads 1 app:app
+    healthCheckPath: /ping
+    
+    envVars:
+      # Flask Configuration
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: PORT
+        value: 8080
+      
+      # Authentication - Set these in Render Dashboard
+      - key: JWT_SECRET_KEY
+        sync: false  # Must be set manually in Render Dashboard
+      - key: JWT_EXPIRY_HOURS
+        value: "24"
+      
+      # Database - Set in Render Dashboard
+      - key: MONGO_URI
+        sync: false  # Must be set manually in Render Dashboard
+      - key: MONGO_DB
+        value: crop_intelligence
+      
+      # CORS Configuration
+      # IMPORTANT: Set FRONTEND_URL to your Vercel deployment URL
+      - key: FRONTEND_URL
+        sync: false  # Must be set manually in Render Dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false  # Must be set manually in Render Dashboard
+      
+      # Google Gemini AI - Set in Render Dashboard
+      - key: GEMINI_API_KEY
+        sync: false  # Must be set manually
+      - key: MULTILINGUAL_GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: YIELD_GEMINI_MODEL
+        value: gemini-2.0-flash-exp
+      
+      # Weather & Government Data - Set in Render Dashboard
+      - key: OPENWEATHER_API_KEY
+        sync: false  # Must be set manually
+      - key: DATA_GOV_IN_API_KEY
+        sync: false  # Must be set manually
+      - key: GOVT_OPEN_DATA_KEY
+        sync: false  # Must be set manually
+      
+      # Market Data APIs - Set in Render Dashboard
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false  # Must be set manually
+      - key: COMMODITIES_API_KEY
+        sync: false  # Must be set manually
+      - key: QUANDL_API_KEY
+        sync: false  # Must be set manually
+      - key: EXCHANGERATE_API_KEY
+        sync: false  # Must be set manually
+      
+      # Disease Detection Service
+      - key: DISEASE_SERVICE_URL
+        value: https://plant-disease-detection-api-nni5.onrender.com/predict
+      - key: DISEASE_SERVICE_TIMEOUT
+        value: "30"
+
+# Manual Setup Required After Deployment:
+# 
+# 1. Go to Render Dashboard → Your Service → Environment
+# 2. Add these required secrets:
+#    - JWT_SECRET_KEY: Generate with `python -c "import secrets; print(secrets.token_hex(32))"`
+#    - MONGO_URI: Your MongoDB connection string (use MongoDB Atlas)
+#    - FRONTEND_URL: Your Vercel deployment URL (e.g., https://your-app.vercel.app)
+#    - ALLOWED_ORIGINS: Same as FRONTEND_URL
+#    - GEMINI_API_KEY: Your Google Gemini API key
+#    - OPENWEATHER_API_KEY: Your OpenWeather API key
+# 
+# 3. Optional API keys (for full functionality):
+#    - DATA_GOV_IN_API_KEY, ALPHA_VANTAGE_API_KEY, etc.
+# 
+# 4. After setting environment variables, the service will auto-redeploy
+# 
+# 5. Update your Vercel frontend:
+#    - Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+#    - Set REACT_APP_API_BASE to your Render URL (e.g., https://crop-intelligence-api.onrender.com)
+#    - Redeploy frontend
+# 
+# The backend will automatically allow CORS from:
+# - All *.vercel.app domains
+# - All *.azurewebsites.net domains
+# - All *.onrender.com domains
+# - localhost (for development)

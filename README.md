@@ -6,6 +6,7 @@ A comprehensive full-stack crop intelligence platform for farmers, built with Fl
 
 ## 🌾 Features
 
+- **🔐 Secure Authentication:** JWT-based auth with email/password and optional Google OAuth, seamlessly works across Azure, Render, or any backend
 - **🤖 Crop Yield Predictor:** Machine Learning Random Forest regressor trained on MongoDB crop data for accurate yield predictions
 - **🔍 Disease Detection:** Deep learning model (TensorFlow/Keras) for plant disease identification with image analysis
 - **💰 Financial Dashboard:** ROI calculator, market trend analysis, and financial decision support
@@ -63,10 +64,12 @@ crop-intelligence-app/
 
 ## 🚀 Quick Start
 
+> **🔐 New to Authentication?** See [AUTHENTICATION_QUICK_START.md](AUTHENTICATION_QUICK_START.md) for detailed authentication setup guide.
+
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+
-- MongoDB (local or cloud)
+- MongoDB Atlas (recommended) or local MongoDB
 - Git
 
 ### 1. Clone Repository
@@ -84,16 +87,30 @@ pip install -r requirements.txt
 
 # Set up environment variables
 cp .env.example .env
-# Edit .env with your MongoDB URI, Gemini key, and market data API keys
+# Edit .env with your configuration (see below)
 
-# Start Flask server (integrated)
+# Verify configuration
+python check_auth_config.py
+
+# Start Flask server
 python app_integrated.py
-
-# (Optional) Start WebSocket broadcaster for live market pushes (port 8765)
-# python -c "from websocket_market_service import websocket_market_service; websocket_market_service.start_websocket_server(host='0.0.0.0', port=8765)"
 ```
 
-The backend will start on `http://localhost:5001`
+**Required Environment Variables** (in `backend/.env`):
+```env
+# Authentication
+JWT_SECRET_KEY=<generate-with-python-secrets>
+MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/dbname
+
+# CORS (for production)
+FRONTEND_URL=https://your-app.vercel.app
+ALLOWED_ORIGINS=https://your-app.vercel.app
+
+# AI Services (recommended)
+GEMINI_API_KEY=<your-google-gemini-api-key>
+```
+
+The backend will start on `http://localhost:5000`
 
 ### 3. Frontend Setup
 ```bash
@@ -102,11 +119,25 @@ cd frontend
 # Install Node.js dependencies
 npm install
 
+# Set up environment variables
+# Create .env.local file:
+echo "REACT_APP_API_BASE=http://localhost:5000" > .env.local
+
 # Start React development server
 npm start
 ```
 
 The frontend will start on `http://localhost:3000`
+
+### 4. Test Authentication
+1. Open `http://localhost:3000` in your browser
+2. Click "SIGN UP" and create an account
+3. Login with your credentials
+4. You should be redirected to the dashboard
+
+**Demo Credentials** (if test data exists):
+- Email: `demo2@gmail.com`
+- Password: `demo123`
 
 ### 4. MongoDB Setup
 Create a MongoDB database with these collections:
@@ -230,6 +261,105 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 - **Background refresh**: `realtime_market_service` schedules updates every minute, with rate limiting and Mongo-backed caching to stay within free API quotas.
 - **WebSocket streaming**: Optional broadcaster pushes `market_update` frames over `ws://localhost:8765`, backed by the same aggregator.
 - **Resilience**: When `data.gov.in` returns the upstream `"Resource id doesn't exist"` error, the service records the incident, reuses the freshest cache entry, and surfaces the condition in the response metadata.
+
+## 🚢 Deployment
+
+The application supports seamless deployment across multiple platforms without code changes.
+
+### Supported Platforms
+
+- **Azure App Service** - Automatic deployment via GitHub Actions
+- **Render** - One-click deployment with `render.yaml`
+- **Vercel** - Frontend deployment (automatic with GitHub integration)
+- **Local** - Development environment
+
+### Quick Deployment Guides
+
+**For Azure:**
+See [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for detailed Azure setup.
+
+**For Render:**
+1. Connect your GitHub repository
+2. Use the `render.yaml` blueprint
+3. Set environment variables in Render Dashboard
+4. Deploy
+
+**For Production Frontend (Vercel):**
+1. Connect your GitHub repository
+2. Set `REACT_APP_API_BASE` to your backend URL
+3. Optional: Set `REACT_APP_GOOGLE_CLIENT_ID` for Google OAuth
+4. Deploy
+
+### Seamless Backend Switching
+
+Switch between Azure and Render without code changes:
+
+1. **Update Frontend Environment Variable:**
+   - Vercel Dashboard → Settings → Environment Variables
+   - Change `REACT_APP_API_BASE` to new backend URL
+   - Redeploy
+
+2. **Backend automatically allows CORS from:**
+   - All `*.vercel.app` domains
+   - All `*.azurewebsites.net` domains
+   - All `*.onrender.com` domains
+
+**See [BACKEND_SWITCHING_GUIDE.md](BACKEND_SWITCHING_GUIDE.md) for complete instructions.**
+
+### Deployment Verification
+
+After deployment, verify your setup:
+
+```bash
+# Backend health check
+curl https://your-backend-url/ping
+
+# Run automated configuration check
+cd backend && python check_auth_config.py
+```
+
+**See [DEPLOYMENT_VERIFICATION.md](DEPLOYMENT_VERIFICATION.md) for detailed testing guide.**
+
+## 🔐 Authentication System
+
+The application includes a robust authentication system with:
+
+- **Email/Password Authentication** (always works, no setup required)
+- **Google OAuth** (optional, requires Google Cloud Console setup)
+- **JWT Token-based** (secure, stateless)
+- **Cross-platform support** (works seamlessly on Azure, Render, or any backend)
+
+### Quick Authentication Setup
+
+1. **Set Backend Environment Variables:**
+   ```env
+   JWT_SECRET_KEY=<generate-strong-secret>
+   MONGO_URI=<your-mongodb-connection-string>
+   FRONTEND_URL=<your-frontend-url>
+   ```
+
+2. **Set Frontend Environment Variable:**
+   ```env
+   REACT_APP_API_BASE=<your-backend-url>
+   ```
+
+3. **Optional - Enable Google OAuth:**
+   - Get Client ID from [Google Cloud Console](https://console.cloud.google.com/)
+   - Set `REACT_APP_GOOGLE_CLIENT_ID` in frontend
+   - Add your frontend URL to Authorized JavaScript Origins
+
+**See [AUTHENTICATION_QUICK_START.md](AUTHENTICATION_QUICK_START.md) for complete setup guide.**
+
+### Authentication Features
+
+✅ Secure JWT token generation and validation
+✅ Password hashing with bcrypt
+✅ User registration and login
+✅ Protected API routes
+✅ Token expiration handling
+✅ Google OAuth integration (optional)
+✅ Works across all deployment platforms
+✅ Detailed error messages and fallback guidance
 
 ## 🛠️ Technology Stack
 

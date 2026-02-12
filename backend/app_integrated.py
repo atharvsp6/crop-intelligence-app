@@ -99,90 +99,102 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-here')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
 
-# Determine allowed origins in a flexible way that supports multiple dev ports
+# Determine allowed origins - completely environment-driven for seamless backend switching
+def _normalize_origin(origin: str) -> str:
+    """Normalize origin by removing trailing slashes and protocol inconsistencies."""
+    if not origin:
+        return origin
+    return origin.rstrip('/')
+
+# Start with default local development origins
 default_origins = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
 ]
-custom_origins = os.environ.get("ALLOWED_ORIGINS")
+
+# Build allowed origins list from environment variables
+allowed_origin_set = set()
+
+# Add default local origins (always allowed for development)
+for origin in default_origins:
+    allowed_origin_set.add(_normalize_origin(origin))
+
+# Add custom origins from ALLOWED_ORIGINS environment variable (primary config)
+custom_origins = os.environ.get("ALLOWED_ORIGINS", "")
 if custom_origins:
-    allowed_origins = [origin.strip() for origin in custom_origins.split(",") if origin.strip()]
-else:
-    allowed_origins = default_origins
+    for origin in custom_origins.split(","):
+        normalized = _normalize_origin(origin.strip())
+        if normalized:
+            allowed_origin_set.add(normalized)
+            print(f"[CORS] Added custom origin from ALLOWED_ORIGINS: {normalized}")
+
+# Add Vercel preview origins if provided
+preview_origins = os.environ.get("VERCEL_PREVIEW_ORIGINS", "")
+if preview_origins:
+    for origin in preview_origins.split(','):
+        normalized = _normalize_origin(origin.strip())
+        if normalized:
+            allowed_origin_set.add(normalized)
+            print(f"[CORS] Added Vercel preview origin: {normalized}")
+
+# Add frontend URL from environment variable (for main production deployment)
+frontend_url = os.environ.get("FRONTEND_URL", "")
+if frontend_url:
+    normalized = _normalize_origin(frontend_url)
+    allowed_origin_set.add(normalized)
+    print(f"[CORS] Added frontend URL: {normalized}")
 
 from flask_cors import CORS
 
-# Normalize origins (trim trailing slashes) and ensure production domains are included
-def _normalize_origin(origin: str) -> str:
-    if not origin:
-        return origin
-    return origin.rstrip('/')
-
-allowed_origin_set = {
-    _normalize_origin(origin)
-    for origin in allowed_origins + [
-        "https://crop-intelligence-app.vercel.app",
-        "https://www.crop-intelligence-app.vercel.app",
-        "https://crop-intelligence-app-production.up.railway.app",
-        "https://crop-intelligence-app-az6b.onrender.com",
-        "https://yieldwise.vercel.app",
-        "https://crop-intelligence-api.azurewebsites.net",
-    ]
-    if origin
-}
-
-# Debug: Print allowed origins at startup
-print(f"[CORS] Configured allowed origins: {sorted(allowed_origin_set)}")
-
-# Ensure Vercel preview domains are also allowed if provided via env (comma separated)
-preview_origins = os.environ.get("VERCEL_PREVIEW_ORIGINS")
-if preview_origins:
-    for preview_origin in preview_origins.split(','):
-        normalized = _normalize_origin(preview_origin.strip())
-        if normalized:
-            allowed_origin_set.add(normalized)
-
+# Debug: Print all allowed origins at startup
+print(f"[CORS] Total configured allowed origins: {len(allowed_origin_set)}")
+print(f"[CORS] Allowed origins: {sorted(allowed_origin_set)}")
 
 def _is_allowed_origin(origin: str) -> bool:
-    """Check if origin is allowed, including dynamic Vercel preview URLs."""
+    """
+    Check if origin is allowed.
+    Supports:
+    - Explicitly configured origins
+    - All *.vercel.app domains (for Vercel deployments)
+    - All *.azurewebsites.net domains (for Azure deployments)
+    - All *.onrender.com domains (for Render deployments)
+    """
     if not origin:
         return False
+    
     normalized = _normalize_origin(origin)
+    
+    # Check if origin is in the explicitly allowed set
     if normalized in allowed_origin_set:
         return True
-    # Allow any Vercel preview deployment for this project
+    
+    # Allow all Vercel preview/production deployments
     if normalized.endswith('.vercel.app'):
+        print(f"[CORS] Auto-allowed Vercel deployment: {normalized}")
         return True
+    
+    # Allow all Azure App Service deployments
+    if normalized.endswith('.azurewebsites.net'):
+        print(f"[CORS] Auto-allowed Azure deployment: {normalized}")
+        return True
+    
+    # Allow all Render deployments
+    if normalized.endswith('.onrender.com'):
+        print(f"[CORS] Auto-allowed Render deployment: {normalized}")
+        return True
+    
     return False
 
 
-# Build CORS config to explicitly allow origins and headers for preflight requests
-sorted_origins = sorted([origin for origin in allowed_origin_set if origin])
-cors_config = {
-    r"/*": {
-        "origins": sorted_origins,
-        "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        "allow_headers": [
-            "Content-Type",
-            "Authorization",
-            "X-Requested-With",
-            "Accept",
-            "Origin"
-        ],
-        "expose_headers": [
-            "Content-Type",
-            "Authorization"
-        ],
-        "supports_credentials": True
-    }
-}
-
+# Configure CORS with dynamic origin checking
+# We don't use static origins list since we support wildcard domains like *.vercel.app
+# Instead, we use the after_request handler to set headers dynamically
 CORS(
     app,
-    resources=cors_config,
-    supports_credentials=True
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=False  # Will be set dynamically in after_request
 )
 
 # Add CORS debugging for all requests

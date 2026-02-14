@@ -2272,6 +2272,237 @@ def search_forum_posts():
         return jsonify({'error': str(e)}), 500
 
 # =============================================================================
+# GROQ AI SERVICES  (crop recommendation, disease intel, market prediction,
+#                     financial planning, weather alerts, forum AI, voice)
+# =============================================================================
+try:
+    from groq_services import (
+        get_crop_recommendation, get_disease_treatment, get_pest_identification,
+        get_market_prediction, get_financial_plan, get_weather_alerts,
+        get_forum_ai_answer, moderate_forum_post, get_voice_advisory,
+        get_quick_advice,
+    )
+    GROQ_AVAILABLE = True
+    print("[Startup] Groq AI services loaded successfully")
+except Exception as _groq_err:
+    GROQ_AVAILABLE = False
+    print(f"[Startup] Groq AI services unavailable: {_groq_err}")
+
+
+def _groq_guard():
+    """Return an error response if Groq is not available."""
+    if not GROQ_AVAILABLE:
+        return jsonify({"success": False, "error": "Groq AI services are not available. Set GROQ_API_KEY."}), 503
+    return None
+
+
+# --- 2. Crop Recommendation ---
+@app.route('/api/groq/crop-recommendation', methods=['POST'])
+def groq_crop_recommendation():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_crop_recommendation(
+            soil_type=data.get('soil_type', 'loamy'),
+            temperature=float(data.get('temperature', 25)),
+            humidity=float(data.get('humidity', 60)),
+            rainfall=float(data.get('rainfall', 800)),
+            water_availability=data.get('water_availability', 'medium'),
+            region=data.get('region', 'India'),
+            season=data.get('season', ''),
+            budget=data.get('budget', ''),
+            land_size=data.get('land_size', ''),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 3. Disease & Pest Intelligence ---
+@app.route('/api/groq/disease-treatment', methods=['POST'])
+def groq_disease_treatment():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_disease_treatment(
+            disease_name=data.get('disease_name', ''),
+            crop=data.get('crop', ''),
+            severity=data.get('severity', 'moderate'),
+            region=data.get('region', 'India'),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/groq/pest-identify', methods=['POST'])
+def groq_pest_identify():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_pest_identification(
+            symptoms=data.get('symptoms', ''),
+            crop=data.get('crop', ''),
+            region=data.get('region', 'India'),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 4. Market Price Prediction ---
+@app.route('/api/groq/market-prediction', methods=['POST'])
+def groq_market_prediction():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_market_prediction(
+            crop=data.get('crop', ''),
+            region=data.get('region', 'India'),
+            current_price=data.get('current_price'),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 5. Financial Planning ---
+@app.route('/api/groq/financial-plan', methods=['POST'])
+def groq_financial_plan():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_financial_plan(
+            crop=data.get('crop', ''),
+            area_acres=float(data.get('area_acres', 1)),
+            region=data.get('region', 'India'),
+            budget=data.get('budget'),
+            current_season=data.get('season', ''),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 6. Weather Smart Alerts ---
+@app.route('/api/groq/weather-alerts', methods=['POST'])
+def groq_weather_alerts():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_weather_alerts(
+            weather_data=data.get('weather_data', {}),
+            crops=data.get('crops', []),
+            region=data.get('region', 'India'),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 9. Forum AI Assistant ---
+@app.route('/api/groq/forum-answer', methods=['POST'])
+def groq_forum_answer():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_forum_ai_answer(
+            question=data.get('question', ''),
+            category=data.get('category', 'general'),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/groq/moderate-post', methods=['POST'])
+def groq_moderate_post():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = moderate_forum_post(
+            content=data.get('content', ''),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 10. Voice Advisory ---
+@app.route('/api/groq/voice-advisory', methods=['POST'])
+def groq_voice_advisory():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_voice_advisory(
+            query=data.get('query', ''),
+            context=data.get('context', ''),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- General quick advice ---
+@app.route('/api/groq/quick-advice', methods=['POST'])
+def groq_quick_advice():
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        data = request.get_json(force=True)
+        result = get_quick_advice(
+            topic=data.get('topic', ''),
+            details=data.get('details', ''),
+            language=data.get('language', 'en'),
+        )
+        return jsonify({"success": True, "data": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- Groq service status ---
+@app.route('/api/groq/status', methods=['GET'])
+def groq_status():
+    return jsonify({
+        "success": True,
+        "groq_available": GROQ_AVAILABLE,
+        "services": [
+            "crop-recommendation", "disease-treatment", "pest-identify",
+            "market-prediction", "financial-plan", "weather-alerts",
+            "forum-answer", "moderate-post", "voice-advisory", "quick-advice",
+        ]
+    })
+
+
+# =============================================================================
 # HEALTH CHECK
 # =============================================================================
 
@@ -2284,7 +2515,8 @@ def health_check():
             'database': 'connected',
             'auth': 'active',
             'weather': 'active',
-            'chatbot': 'active' if crop_chatbot.model else 'fallback_mode'
+            'chatbot': 'active' if crop_chatbot and crop_chatbot.model else 'fallback_mode',
+            'groq_ai': 'active' if GROQ_AVAILABLE else 'unavailable'
         }
     })
 
@@ -2301,7 +2533,14 @@ def home():
             'Disease Detection',
             'Financial Analysis',
             'Community Forum',
-            'Dashboard Analytics'
+            'Dashboard Analytics',
+            'AI Crop Recommendation (Groq)',
+            'Disease & Pest Intelligence (Groq)',
+            'Market Price Prediction (Groq)',
+            'Financial Planning Assistant (Groq)',
+            'Weather Smart Alerts (Groq)',
+            'Forum AI Assistant (Groq)',
+            'Voice Advisory System (Groq)'
         ],
         'endpoints': {
             'auth': '/api/auth/*',
@@ -2311,7 +2550,8 @@ def home():
             'prediction': '/api/predict-crop',
             'disease': '/api/detect-disease',
             'financial': '/api/financial/*',
-            'forum': '/api/forum/*'
+            'forum': '/api/forum/*',
+            'groq_ai': '/api/groq/*'
         }
     })
 

@@ -45,7 +45,8 @@ const resources = {
           mandiData: 'Mandi Data',
           communityForum: 'Community Forum',
           chatbot: 'AI Chatbot',
-          multilingualChat: 'Multilingual Chat'
+          multilingualChat: 'Multilingual Chat',
+          smartAdvisor: 'Smart Advisory'
         },
         tips: {
           title: 'Smart farming tips',
@@ -343,7 +344,8 @@ const resources = {
           mandiData: 'मंडी डेटा',
           communityForum: 'सामुदायिक मंच',
           chatbot: 'एआई चैटबॉट',
-          multilingualChat: 'बहुभाषी चैट'
+          multilingualChat: 'बहुभाषी चैट',
+          smartAdvisor: 'स्मार्ट सलाहकार'
         },
         tips: {
           title: 'स्मार्ट खेती सुझाव',
@@ -604,7 +606,8 @@ const resources = {
           mandiData: 'মান্ডি ডেটা',
           communityForum: 'কমিউনিটি ফোরাম',
           chatbot: 'এআই চ্যাটবট',
-          multilingualChat: 'বহুভাষিক চ্যাট'
+          multilingualChat: 'বহুভাষিক চ্যাট',
+          smartAdvisor: 'স্মার্ট পরামর্শদাতা'
         },
         tips: {
           title: 'স্মার্ট চাষাবাদ টিপস',
@@ -865,7 +868,8 @@ const resources = {
           mandiData: 'मंडी डेटा',
           communityForum: 'समुदाय मंच',
           chatbot: 'एआय चॅटबॉट',
-          multilingualChat: 'बहुभाषिक चॅट'
+          multilingualChat: 'बहुभाषिक चॅट',
+          smartAdvisor: 'स्मार्ट सल्लागार'
         },
         tips: {
           title: 'स्मार्ट शेती टिप्स',
@@ -1123,7 +1127,8 @@ const resources = {
           mandiData: 'மண்டி தரவு',
           communityForum: 'சமூக அரங்கு',
           chatbot: 'ஏஐ அரட்டை',
-          multilingualChat: 'பலமொழி அரட்டை'
+          multilingualChat: 'பலமொழி அரட்டை',
+          smartAdvisor: 'ஸ்மார்ட் ஆலோசகர்'
         },
         tips: {
           title: 'ச்மார்ட் விவசாய குறிப்புகள்',
@@ -1381,7 +1386,8 @@ const resources = {
           mandiData: 'మండి డేటా',
           communityForum: 'సమాజ ఫోరం',
           chatbot: 'ఏఐ చాట్‌బాట్',
-          multilingualChat: 'బహుభాషా చాట్'
+          multilingualChat: 'బహుభాషా చాట్',
+          smartAdvisor: 'స్మార్ట్ సలహాదారు'
         },
         tips: {
           title: 'స్మార్ట్ వ్యవసాయ సూచనలు',

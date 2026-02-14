@@ -12,6 +12,7 @@ pillow==11.1.0
 google-generativeai
 gunicorn>=22.0.0
 psutil>=5.9.0
+groq>=0.9.0
 
 # Real-time Market Data Dependencies
 schedule>=1.2.0

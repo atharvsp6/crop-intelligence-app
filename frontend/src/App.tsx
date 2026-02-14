@@ -17,6 +17,7 @@ import MandiData from './components/MandiData';
 import CommunityForum from './components/CommunityForum';
 import Chatbot from './components/Chatbot';
 import MultilingualChatbot from './components/MultilingualChatbot';
+import SmartAdvisor from './components/SmartAdvisor';
 import './App.css';
 
 const SIDEBAR_WIDTH = 272;
@@ -261,6 +262,7 @@ function App() {
                       <Route path="/community-forum" element={<CommunityForum />} />
                       <Route path="/chatbot" element={<Chatbot />} />
                       <Route path="/multilingual-chatbot" element={<MultilingualChatbot />} />
+                      <Route path="/smart-advisor" element={<SmartAdvisor />} />
                     </Routes>
                   </Box>
                 </Box>

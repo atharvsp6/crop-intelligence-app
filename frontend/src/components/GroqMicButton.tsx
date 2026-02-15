@@ -7,7 +7,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { IconButton, Tooltip, CircularProgress } from '@mui/material';
-import { Mic, MicOff, Stop } from '@mui/icons-material';
+import { Mic, Stop } from '@mui/icons-material';
 import {
   startRecording,
   stopAndTranscribe,

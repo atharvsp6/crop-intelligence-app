@@ -1144,75 +1144,46 @@ function VoiceAdvisory() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [listenStatus, setListenStatus] = useState<'idle' | 'listening' | 'processing'>('idle');
-  const recognitionRef = useRef<any>(null);
 
-  const startListening = useCallback(() => {
-    // Stop any previous recognition
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch { /* ignore */ }
-    }
-
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setError('Speech recognition not supported in this browser'); return; }
-
-    const recognition = new SR();
-    recognitionRef.current = recognition;
-    const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN' };
-    recognition.lang = langMap[language] || 'en-IN';
-    recognition.continuous = false;
-    recognition.interimResults = true; // Show partial results
-
-    // Set listening state immediately before start
+  const startListening = useCallback(async () => {
+    setError('');
     setIsListening(true);
     setListenStatus('listening');
-    setError('');
-
-    let hasResult = false;
-
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      setQuery(transcript);
-      if (e.results[0].isFinal) {
-        hasResult = true;
-        setListenStatus('processing');
-      }
-    };
-
-    recognition.onerror = (e: any) => {
-      console.warn('Speech recognition error:', e.error);
-      if (e.error === 'no-speech') {
-        setError('No speech detected. Please try again and speak clearly.');
-      } else if (e.error === 'audio-capture') {
-        setError('Microphone not found. Please check your microphone settings.');
-      } else if (e.error === 'not-allowed') {
+    try {
+      const { startRecording } = await import('../services/groqSpeech');
+      await startRecording();
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
         setError('Microphone access denied. Please allow microphone access.');
+      } else if (err.name === 'NotFoundError') {
+        setError('No microphone found. Please connect a microphone.');
+      } else {
+        setError(err.message || 'Failed to start recording');
       }
       setIsListening(false);
       setListenStatus('idle');
-    };
+    }
+  }, []);
 
-    recognition.onend = () => {
-      // Add a brief delay before hiding the listening indicator
-      setTimeout(() => {
-        setIsListening(false);
-        setListenStatus('idle');
-      }, hasResult ? 500 : 1500);
-    };
-
+  const stopListening = useCallback(async () => {
+    setListenStatus('processing');
     try {
-      recognition.start();
-    } catch (e) {
-      setError('Failed to start speech recognition. Please try again.');
+      const { stopAndTranscribe } = await import('../services/groqSpeech');
+      // Map language codes for Whisper
+      const langMap: Record<string, string> = { en: 'en', hi: 'hi', mr: 'mr', ta: 'ta', te: 'te', bn: 'bn' };
+      const result = await stopAndTranscribe(langMap[language] || 'en');
+      if (result.success && result.text) {
+        setQuery(result.text);
+      } else {
+        setError(result.error || 'Could not transcribe. Please try again.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Transcription failed');
+    } finally {
       setIsListening(false);
       setListenStatus('idle');
     }
   }, [language]);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch { /* ignore */ }
-    }
-  }, []);
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {

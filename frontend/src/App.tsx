@@ -19,6 +19,7 @@ import Chatbot from './components/Chatbot';
 import MultilingualChatbot from './components/MultilingualChatbot';
 import SmartAdvisor from './components/SmartAdvisor';
 import ProfilePage from './components/ProfilePage';
+import VoiceCommandButton from './components/VoiceCommandButton';
 import './App.css';
 
 const SIDEBAR_WIDTH = 272;
@@ -268,6 +269,7 @@ function App() {
                     </Routes>
                   </Box>
                 </Box>
+                <VoiceCommandButton />
               </Box>
             </ProtectedRoute>
           } />

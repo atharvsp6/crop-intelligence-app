@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
+import GroqMicButton from './GroqMicButton';
 
 interface ChatMessage {
   id: string;
@@ -352,6 +353,15 @@ const Chatbot: React.FC = () => {
                 >
                   <Send />
                 </Button>
+                <GroqMicButton
+                  onTranscript={(text) => {
+                    setInputMessage(text);
+                    // Auto-send after transcription
+                    setTimeout(() => sendMessage(text), 300);
+                  }}
+                  onError={(err) => console.error('Mic error:', err)}
+                  size="medium"
+                />
                 <IconButton onClick={clearChat} color="secondary">
                   <Clear />
                 </IconButton>

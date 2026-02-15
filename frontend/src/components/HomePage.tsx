@@ -316,6 +316,9 @@ const HomePage: React.FC = () => {
             <Button
               variant="outlined"
               size="large"
+              onClick={() => {
+                document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               sx={{
                 borderRadius: 3,
                 px: 4,
@@ -332,6 +335,7 @@ const HomePage: React.FC = () => {
 
         {/* Features Grid */}
         <Box
+          id="features-section"
           sx={{
             display: 'grid',
             gridTemplateColumns: {
@@ -366,7 +370,7 @@ const HomePage: React.FC = () => {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            © 2025 YieldWise. Intelligent Agriculture Platform for Better Yields.
+            © {new Date().getFullYear()} YieldWise. Intelligent Agriculture Platform for Better Yields.
           </Typography>
         </Box>
       </Container>

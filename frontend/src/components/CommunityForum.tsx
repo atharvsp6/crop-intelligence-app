@@ -37,6 +37,7 @@ import {
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { SUPPORTED_LANGUAGES } from '../i18n';
+import GroqMicButton from './GroqMicButton';
 
 interface ForumPost {
   _id: string;
@@ -138,6 +139,11 @@ const CommunityForum: React.FC = () => {
   const response = await axios.post(`${API_BASE}/api/forum/posts`, {
         ...newPost,
         author: currentUser,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        }
       });
       
       if (response.data.success) {
@@ -160,6 +166,12 @@ const CommunityForum: React.FC = () => {
           content: newReply,
           author: currentUser,
           language: 'en',
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          }
         }
       );
 
@@ -176,6 +188,11 @@ const CommunityForum: React.FC = () => {
     try {
   await axios.post(`${API_BASE}/api/forum/posts/${postId}/like`, {
         user: currentUser,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        }
       });
       fetchPosts(); // Refresh posts to show updated like count
     } catch (error) {
@@ -240,9 +257,20 @@ const CommunityForum: React.FC = () => {
                 onKeyPress={(e) => e.key === 'Enter' && searchPosts()}
                 InputProps={{
                   endAdornment: (
-                    <IconButton onClick={searchPosts}>
-                      <Search />
-                    </IconButton>
+                    <>
+                      <GroqMicButton
+                        onTranscript={(text) => {
+                          setSearchQuery(text);
+                          // Need to trigger search after state update
+                          setTimeout(() => searchPosts(), 300);
+                        }}
+                        size="small"
+                        onError={(err) => console.error('Mic error:', err)}
+                      />
+                      <IconButton onClick={searchPosts}>
+                        <Search />
+                      </IconButton>
+                    </>
                   ),
                 }}
               />

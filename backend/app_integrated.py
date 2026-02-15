@@ -6,8 +6,12 @@ import json
 import gc
 import io
 import base64
+import logging
 import numpy as np
 from PIL import Image
+
+logger = logging.getLogger(__name__)
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
@@ -2256,6 +2260,16 @@ def add_forum_reply(post_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/forum/posts/<post_id>/like', methods=['POST'])
+def like_forum_post(post_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        user = data.get('user', 'anonymous')
+        result = community_forum.like_post(post_id, user)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/forum/search', methods=['GET'])
 def search_forum_posts():
     try:
@@ -2470,6 +2484,89 @@ def groq_voice_advisory():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# --- 11. Speech-to-Text via Groq Whisper ---
+@app.route('/api/groq/speech-to-text', methods=['POST'])
+def groq_speech_to_text():
+    """Transcribe audio using Groq's Whisper model."""
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        from groq_services import _get_client
+        client = _get_client()
+        if client is None:
+            return jsonify({"success": False, "error": "Groq API not configured"}), 503
+
+        if 'audio' not in request.files:
+            return jsonify({"success": False, "error": "No audio file provided"}), 400
+
+        audio_file = request.files['audio']
+        language = request.form.get('language', '')
+
+        # Determine file extension – default to webm for MediaRecorder blobs
+        filename = audio_file.filename or 'recording.webm'
+        if '.' not in filename:
+            filename = 'recording.webm'
+
+        transcription_kwargs = dict(
+            file=(filename, audio_file.read()),
+            model="whisper-large-v3-turbo",
+            response_format="json",
+            temperature=0.0,
+        )
+        if language and language != 'auto':
+            transcription_kwargs['language'] = language
+
+        transcription = client.audio.transcriptions.create(**transcription_kwargs)
+        text = transcription.text if hasattr(transcription, 'text') else str(transcription)
+
+        return jsonify({
+            "success": True,
+            "text": text.strip(),
+            "language": language or "auto",
+        })
+    except Exception as e:
+        logger.error("Speech-to-text error: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 12. Voice Intent Classification (navigate to section) ---
+@app.route('/api/groq/voice-intent', methods=['POST'])
+def groq_voice_intent():
+    """Classify user's voice command into an app section/action."""
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        from groq_services import _chat, FAST_MODEL
+        data = request.get_json(force=True)
+        transcript = data.get('text', '')
+        if not transcript.strip():
+            return jsonify({"success": False, "error": "Empty transcript"}), 400
+
+        system = (
+            "You are a voice command classifier for a farming intelligence app called YieldWise. "
+            "The app has these sections: "
+            "dashboard, crop-predictor, disease-detector, financial-dashboard, "
+            "market-intelligence, mandi-data, community-forum, chatbot, "
+            "multilingual-chatbot, smart-advisor, profile. "
+            "The smart-advisor has sub-tabs: crop-advice(0), disease-intel(1), market(2), finance(3), weather(4), forum-ai(5), voice(6). "
+            "Based on the user's spoken command, determine which section they want to go to and/or what action they want. "
+            "Return valid JSON: "
+            '{"section": "route-name", "sub_tab": null or number, "action": "navigate|ask|predict|detect|search", '
+            '"extracted_query": "any specific question or data from the command", '
+            '"confidence": 0.0-1.0, "summary": "brief description of what user wants"}'
+        )
+
+        result = _chat(system, f"User said: {transcript}", model=FAST_MODEL,
+                       json_mode=True, max_tokens=300, temperature=0.2)
+
+        return jsonify({"success": True, "intent": result})
+    except Exception as e:
+        logger.error("Voice intent error: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # --- General quick advice ---
 @app.route('/api/groq/quick-advice', methods=['POST'])
 def groq_quick_advice():
@@ -2498,6 +2595,7 @@ def groq_status():
             "crop-recommendation", "disease-treatment", "pest-identify",
             "market-prediction", "financial-plan", "weather-alerts",
             "forum-answer", "moderate-post", "voice-advisory", "quick-advice",
+            "speech-to-text", "voice-intent",
         ]
     })
 

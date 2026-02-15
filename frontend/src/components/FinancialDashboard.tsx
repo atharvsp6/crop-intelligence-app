@@ -290,7 +290,7 @@ const FinancialDashboard: React.FC = () => {
                         <Box sx={{ flex: 1 }}>
                           <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light', color: 'white' }}>
                             <Typography variant="h4">
-                              {roiResult.financial_metrics?.roi_percentage.toFixed(1)}%
+                              {roiResult.financial_metrics?.roi_percentage?.toFixed(1) ?? 'N/A'}%
                             </Typography>
                             <Typography variant="body2">ROI</Typography>
                           </Paper>
@@ -438,8 +438,10 @@ const FinancialDashboard: React.FC = () => {
                           Best Performer
                         </Typography>
                         <Typography variant="h6" color="success.main">
-                          {marketTrends.market_summary.best_performer?.charAt(0).toUpperCase() + 
-                           (marketTrends.market_summary.best_performer?.slice(1) || '')}
+                          {marketTrends.market_summary.best_performer 
+                            ? marketTrends.market_summary.best_performer.charAt(0).toUpperCase() + 
+                              marketTrends.market_summary.best_performer.slice(1)
+                            : 'N/A'}
                         </Typography>
                       </Box>
                     </Box>

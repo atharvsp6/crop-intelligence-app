@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
+import GroqMicButton from './GroqMicButton';
 
 interface ChatMessage {
   role: 'user' | 'bot';
@@ -396,9 +397,18 @@ const MultilingualChatbot: React.FC = () => {
                 <Send />
               )}
             </Button>
+            <GroqMicButton
+              onTranscript={(text) => {
+                setQuery(text);
+                setTimeout(() => sendMessage(text), 300);
+              }}
+              language={language === 'auto' ? 'auto' : language}
+              onError={(err) => console.error('Mic error:', err)}
+              size="medium"
+            />
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Press Enter to send, Shift+Enter for new line
+            Press Enter to send, Shift+Enter for new line. Use the mic button for voice input.
           </Typography>
         </Box>
       </Card>

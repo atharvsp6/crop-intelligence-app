@@ -11,6 +11,7 @@ import {
   Button,
   Alert,
   Paper,
+  CircularProgress,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -20,12 +21,16 @@ import {
   Save,
   Edit,
 } from '@mui/icons-material';
+import axios from 'axios';
+import { API_BASE } from '../config';
 import { useAuth } from '../context/AuthContext';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -33,10 +38,33 @@ const ProfilePage: React.FC = () => {
     crops: '',
   });
 
-  const handleSave = () => {
-    setEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(
+        `${API_BASE}/api/auth/profile`,
+        {
+          full_name: form.name,
+          region: form.region,
+          crops: form.crops,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,6 +75,7 @@ const ProfilePage: React.FC = () => {
       </Typography>
 
       {saved && <Alert severity="success" sx={{ mb: 2 }}>Profile updated successfully!</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -79,10 +108,11 @@ const ProfilePage: React.FC = () => {
             <Box sx={{ ml: 'auto' }}>
               <Button
                 variant={editing ? 'contained' : 'outlined'}
-                startIcon={editing ? <Save /> : <Edit />}
+                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : editing ? <Save /> : <Edit />}
                 onClick={editing ? handleSave : () => setEditing(true)}
+                disabled={saving}
               >
-                {editing ? 'Save' : 'Edit Profile'}
+                {saving ? 'Saving...' : editing ? 'Save' : 'Edit Profile'}
               </Button>
             </Box>
           </Box>

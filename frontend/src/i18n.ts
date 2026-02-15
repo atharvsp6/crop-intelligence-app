@@ -31,6 +31,7 @@ const resources = {
         menu: {
           profilePrimary: 'Profile',
           profileSecondary: 'Grower profile',
+          settings: 'Settings',
           logout: 'Sign out'
         }
       },

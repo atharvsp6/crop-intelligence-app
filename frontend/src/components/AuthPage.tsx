@@ -345,12 +345,10 @@ const AuthPage: React.FC = () => {
                 fullWidth
                 label="Email Address"
                 type="email"
-                placeholder="demo2@gmail.com"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                 required
                 variant="outlined"
-                helperText="Demo email: demo2@gmail.com"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -364,12 +362,10 @@ const AuthPage: React.FC = () => {
                 fullWidth
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="demo123"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 required
                 variant="outlined"
-                helperText="Demo password: demo123"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

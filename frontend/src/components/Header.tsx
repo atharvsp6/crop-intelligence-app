@@ -29,6 +29,7 @@ import {
   Language,
   Check,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { SUPPORTED_LANGUAGES } from '../i18n';
@@ -46,6 +47,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const [languageAnchor, setLanguageAnchor] = useState<null | HTMLElement>(null);
@@ -271,13 +273,13 @@ const Header: React.FC<HeaderProps> = ({
               },
             }}
           >
-            <MenuItem>
+            <MenuItem onClick={() => { handleClose(); navigate('/dashboard/profile'); }}>
               <ListItemIcon>
                 <AccountCircle fontSize="small" />
               </ListItemIcon>
               <ListItemText primary={user?.name || t('header.menu.profilePrimary')} secondary={t('header.menu.profileSecondary')} />
             </MenuItem>
-            <MenuItem>
+            <MenuItem onClick={() => { handleClose(); navigate('/dashboard/profile'); }}>
               <ListItemIcon>
                 <Settings fontSize="small" />
               </ListItemIcon>

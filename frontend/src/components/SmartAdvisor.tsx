@@ -1,15 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box, Typography, Tabs, Tab, Card, CardContent, TextField, Button,
   CircularProgress, Alert, Chip, Select, MenuItem, FormControl,
   InputLabel, IconButton, Tooltip, Paper, Divider, List,
   ListItem, ListItemIcon, ListItemText, ToggleButtonGroup, ToggleButton,
+  LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import {
   Agriculture, BugReport, TrendingUp, AccountBalance, WbSunny,
   Forum, RecordVoiceOver, Science, Spa,
   CheckCircle, Mic, VolumeUp, Send,
   WaterDrop, Thermostat, LocationOn,
+  Warning, LocalHospital, Shield, Eco, AttachMoney, CalendarMonth, 
+  MyLocation,
 } from '@mui/icons-material';
 import { API_BASE } from '../config';
 
@@ -53,7 +56,56 @@ async function groqFetch(endpoint: string, body: object) {
   return res.json();
 }
 
-// ─── Reusable result renderer ─────────────────────────────────────
+// ─── Reusable result renderer (smart formatter) ──────────────────
+function formatKey(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function SmartValue({ value }: { value: any }) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{value}</Typography>;
+  if (typeof value === 'number' || typeof value === 'boolean') return <Typography variant="body2">{String(value)}</Typography>;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+    if (typeof value[0] === 'string') {
+      return (
+        <List dense disablePadding>
+          {value.map((item, i) => (
+            <ListItem key={i} sx={{ py: 0.25, px: 0 }}>
+              <ListItemIcon sx={{ minWidth: 28 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+              <ListItemText primary={item} primaryTypographyProps={{ variant: 'body2' }} />
+            </ListItem>
+          ))}
+        </List>
+      );
+    }
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {value.map((item, i) => (
+          <Paper key={i} variant="outlined" sx={{ p: 1.5 }}>
+            {typeof item === 'object' ? Object.entries(item).map(([k, v]) => (
+              <Typography key={k} variant="body2"><strong>{formatKey(k)}:</strong> {typeof v === 'string' || typeof v === 'number' ? String(v) : JSON.stringify(v)}</Typography>
+            )) : <Typography variant="body2">{String(item)}</Typography>}
+          </Paper>
+        ))}
+      </Box>
+    );
+  }
+  if (typeof value === 'object') {
+    return (
+      <Box sx={{ pl: 1 }}>
+        {Object.entries(value).map(([k, v]) => (
+          <Box key={k} sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary">{formatKey(k)}</Typography>
+            <SmartValue value={v} />
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+  return <Typography variant="body2">{String(value)}</Typography>;
+}
+
 function ResultCard({ data, loading, error }: { data: any; loading: boolean; error: string }) {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={48} /></Box>;
   if (error) return <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>;
@@ -62,9 +114,16 @@ function ResultCard({ data, loading, error }: { data: any; loading: boolean; err
   if (data.error) return <Alert severity="error" sx={{ mt: 2 }}>{data.error}</Alert>;
   return (
     <Paper sx={{ p: 3, mt: 2, maxHeight: 600, overflow: 'auto' }}>
-      <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0, fontSize: '0.9rem' }}>
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {Object.entries(data).map(([key, value]) => (
+          <Box key={key}>
+            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, mb: 1, color: 'primary.main', borderBottom: '1px solid', borderColor: 'divider', pb: 0.5 }}>
+              {formatKey(key)}
+            </Typography>
+            <SmartValue value={value} />
+          </Box>
+        ))}
+      </Box>
     </Paper>
   );
 }
@@ -248,7 +307,231 @@ function DiseaseIntelligence() {
       <Button variant="contained" color="error" sx={{ mt: 3 }} startIcon={<Science />} onClick={submit} disabled={loading}>
         {loading ? 'Analyzing...' : mode === 'treatment' ? 'Get Treatment Plan' : 'Identify Disease'}
       </Button>
-      <ResultCard data={result} loading={loading} error={error} />
+
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={48} /></Box>}
+      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+
+      {result && !loading && !error && (
+        <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Treatment mode structured view */}
+          {mode === 'treatment' && result.disease_info ? (
+            <>
+              {/* Disease Info Card */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <BugReport color="error" />
+                    <Typography variant="h6">{result.disease_info.name || 'Disease Info'}</Typography>
+                    {result.disease_info.type && <Chip label={result.disease_info.type} size="small" color="warning" />}
+                  </Box>
+                  {result.disease_info.scientific_name && (
+                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>{result.disease_info.scientific_name}</Typography>
+                  )}
+                  <Typography variant="body2">{result.disease_info.description}</Typography>
+                </CardContent>
+              </Card>
+
+              {/* Severity Assessment */}
+              {result.severity_assessment && (
+                <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Warning color="warning" /> Severity Assessment
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Severity Level</Typography>
+                        <Chip label={result.severity_assessment.level} size="small" color="error" sx={{ display: 'block', mt: 0.5, width: 'fit-content' }} />
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Spread Risk</Typography>
+                        <Typography variant="body2" fontWeight={600}>{result.severity_assessment.spread_risk}</Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Est. Crop Loss</Typography>
+                        <Typography variant="body2" fontWeight={600}>{result.severity_assessment.crop_loss_estimate}</Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Treatment Plan */}
+              {result.treatment_plan && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <LocalHospital color="primary" /> Treatment Plan
+                    </Typography>
+                    {result.treatment_plan.immediate_actions?.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <Alert severity="warning" sx={{ mb: 1 }}>
+                          <Typography variant="subtitle2">Immediate Actions Required</Typography>
+                        </Alert>
+                        <List dense>
+                          {result.treatment_plan.immediate_actions.map((a: string, i: number) => (
+                            <ListItem key={i} sx={{ py: 0.25 }}>
+                              <ListItemIcon sx={{ minWidth: 28 }}><CheckCircle fontSize="small" color="warning" /></ListItemIcon>
+                              <ListItemText primary={a} primaryTypographyProps={{ variant: 'body2' }} />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    )}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+                      {result.treatment_plan.organic_remedies?.length > 0 && (
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                            <Eco fontSize="small" color="success" /> Organic Remedies
+                          </Typography>
+                          {result.treatment_plan.organic_remedies.map((r: any, i: number) => (
+                            <Box key={i} sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'success.light' }}>
+                              <Typography variant="body2" fontWeight={600}>{r.name}</Typography>
+                              <Typography variant="caption" display="block">Application: {r.application}</Typography>
+                              <Typography variant="caption" display="block">Frequency: {r.frequency}</Typography>
+                            </Box>
+                          ))}
+                        </Paper>
+                      )}
+                      {result.treatment_plan.chemical_treatments?.length > 0 && (
+                        <Paper variant="outlined" sx={{ p: 2 }}>
+                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                            <Science fontSize="small" color="info" /> Chemical Treatments
+                          </Typography>
+                          {result.treatment_plan.chemical_treatments.map((t: any, i: number) => (
+                            <Box key={i} sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'info.light' }}>
+                              <Typography variant="body2" fontWeight={600}>{t.name}</Typography>
+                              <Typography variant="caption" display="block">Dosage: {t.dosage}</Typography>
+                              <Typography variant="caption" display="block">Method: {t.application_method}</Typography>
+                              {t.safety_period && <Typography variant="caption" display="block" color="error">Safety period: {t.safety_period}</Typography>}
+                            </Box>
+                          ))}
+                        </Paper>
+                      )}
+                    </Box>
+                    {result.treatment_plan.biological_controls?.length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" gutterBottom>Biological Controls</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {result.treatment_plan.biological_controls.map((b: string, i: number) => (
+                            <Chip key={i} label={b} size="small" variant="outlined" color="success" />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Prevention */}
+              {result.prevention && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Shield color="primary" /> Prevention
+                    </Typography>
+                    {result.prevention.cultural_practices?.length > 0 && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary">Cultural Practices</Typography>
+                        <List dense>
+                          {result.prevention.cultural_practices.map((p: string, i: number) => (
+                            <ListItem key={i} sx={{ py: 0.1 }}>
+                              <ListItemIcon sx={{ minWidth: 28 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                              <ListItemText primary={p} primaryTypographyProps={{ variant: 'body2' }} />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    )}
+                    {result.prevention.resistant_varieties?.length > 0 && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary">Resistant Varieties</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {result.prevention.resistant_varieties.map((v: string, i: number) => (
+                            <Chip key={i} label={v} size="small" variant="outlined" />
+                          ))}
+                        </Box>
+                      </Box>
+                    )}
+                    {result.prevention.monitoring_schedule && (
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        <Typography variant="body2"><strong>Monitoring:</strong> {result.prevention.monitoring_schedule}</Typography>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recovery & Expert */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                {result.estimated_recovery_time && (
+                  <Alert severity="success"><strong>Estimated Recovery:</strong> {result.estimated_recovery_time}</Alert>
+                )}
+                {result.when_to_seek_expert && (
+                  <Alert severity="warning"><strong>Seek Expert When:</strong> {result.when_to_seek_expert}</Alert>
+                )}
+              </Box>
+            </>
+          ) : mode === 'identify' && result.possible_diseases ? (
+            /* Pest identification structured view */
+            <>
+              <Typography variant="subtitle1" fontWeight={600}>Possible Diseases Identified</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+                {result.possible_diseases.map((d: any, i: number) => (
+                  <Card key={i} variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="h6" fontSize="1rem">{d.name}</Typography>
+                        <Chip label={d.confidence} size="small"
+                          color={d.confidence === 'high' ? 'error' : d.confidence === 'medium' ? 'warning' : 'default'} />
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{d.description}</Typography>
+                      {d.matching_symptoms?.length > 0 && (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {d.matching_symptoms.map((s: string, j: number) => (
+                            <Chip key={j} label={s} size="small" variant="outlined" color="error" />
+                          ))}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+              {result.recommended_tests?.length > 0 && (
+                <Alert severity="info">
+                  <Typography variant="subtitle2">Recommended Tests</Typography>
+                  <List dense>
+                    {result.recommended_tests.map((t: string, i: number) => (
+                      <ListItem key={i} sx={{ py: 0 }}>
+                        <ListItemIcon sx={{ minWidth: 28 }}><Science fontSize="small" /></ListItemIcon>
+                        <ListItemText primary={t} primaryTypographyProps={{ variant: 'body2' }} />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Alert>
+              )}
+              {result.immediate_action && <Alert severity="warning"><strong>Immediate Action:</strong> {result.immediate_action}</Alert>}
+              {result.prevention_tips?.length > 0 && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom>Prevention Tips</Typography>
+                    <List dense>
+                      {result.prevention_tips.map((t: string, i: number) => (
+                        <ListItem key={i} sx={{ py: 0.1 }}>
+                          <ListItemIcon sx={{ minWidth: 28 }}><CheckCircle fontSize="small" color="success" /></ListItemIcon>
+                          <ListItemText primary={t} primaryTypographyProps={{ variant: 'body2' }} />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          ) : (
+            <ResultCard data={result} loading={false} error="" />
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -433,7 +716,189 @@ function FinancialPlanning() {
       <Button variant="contained" color="secondary" sx={{ mt: 3 }} startIcon={<AccountBalance />} onClick={submit} disabled={loading}>
         {loading ? 'Planning...' : 'Generate Financial Plan'}
       </Button>
-      <ResultCard data={result} loading={loading} error={error} />
+
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={48} /></Box>}
+      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+
+      {result && !loading && !error && (
+        <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {result.financial_summary ? (
+            <>
+              {/* Financial Summary Cards */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2 }}>
+                {[
+                  { label: 'Total Investment', value: result.financial_summary.total_investment, color: '#e53e3e' },
+                  { label: 'Expected Revenue', value: result.financial_summary.expected_revenue, color: '#2f855a' },
+                  { label: 'Expected Profit', value: result.financial_summary.expected_profit, color: '#38a169' },
+                  { label: 'ROI', value: result.financial_summary.roi_percentage != null ? `${result.financial_summary.roi_percentage}%` : 'N/A', color: '#805ad5' },
+                  { label: 'Breakeven Yield', value: result.financial_summary.breakeven_yield, color: '#dd6b20' },
+                ].map((item, i) => (
+                  <Card key={i} variant="outlined">
+                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                      <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: item.color, fontSize: '1.1rem' }}>{item.value || 'N/A'}</Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+
+              {/* Revenue Projection */}
+              {result.revenue_projection && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TrendingUp color="success" /> Revenue Projection
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+                      {[
+                        { label: 'Optimistic', value: result.revenue_projection.optimistic, color: 'success.main' },
+                        { label: 'Realistic', value: result.revenue_projection.realistic, color: 'info.main' },
+                        { label: 'Pessimistic', value: result.revenue_projection.pessimistic, color: 'warning.main' },
+                      ].map((item, i) => (
+                        <Paper key={i} variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
+                          <Typography variant="caption" color="text.secondary">{item.label}</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 600, color: item.color }}>{item.value || 'N/A'}</Typography>
+                        </Paper>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Cost Breakdown */}
+              {result.cost_breakdown?.length > 0 && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AttachMoney color="secondary" /> Cost Breakdown
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Share</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {result.cost_breakdown.map((item: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell>{item.category}</TableCell>
+                              <TableCell>{item.amount}</TableCell>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <LinearProgress variant="determinate" value={Math.min(item.percentage || 0, 100)} sx={{ flex: 1, height: 6, borderRadius: 3 }} />
+                                  <Typography variant="caption">{item.percentage}%</Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Crop Rotation Plan */}
+              {result.crop_rotation_plan?.length > 0 && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CalendarMonth color="primary" /> Crop Rotation Plan
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+                      {result.crop_rotation_plan.map((item: any, i: number) => (
+                        <Paper key={i} variant="outlined" sx={{ p: 1.5 }}>
+                          <Chip label={item.season} size="small" color="primary" sx={{ mb: 0.5 }} />
+                          <Typography variant="body2" fontWeight={600}>{item.crop}</Typography>
+                          <Typography variant="caption" color="text.secondary">{item.reason}</Typography>
+                        </Paper>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Risk Mitigation & Government Schemes side by side */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                {result.risk_mitigation?.length > 0 && (
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Shield color="warning" /> Risk Mitigation
+                      </Typography>
+                      {result.risk_mitigation.map((item: any, i: number) => (
+                        <Box key={i} sx={{ mb: 1.5, pl: 1.5, borderLeft: '3px solid', borderColor: 'warning.light' }}>
+                          <Typography variant="body2" fontWeight={600}>{item.risk}</Typography>
+                          <Typography variant="caption" display="block">Mitigation: {item.mitigation}</Typography>
+                          {item.insurance_option && <Typography variant="caption" display="block" color="info.main">Insurance: {item.insurance_option}</Typography>}
+                        </Box>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+                {result.government_schemes?.length > 0 && (
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <AccountBalance color="info" /> Government Schemes
+                      </Typography>
+                      {result.government_schemes.map((item: any, i: number) => (
+                        <Box key={i} sx={{ mb: 1.5, pl: 1.5, borderLeft: '3px solid', borderColor: 'info.light' }}>
+                          <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
+                          <Typography variant="caption" display="block">Benefit: {item.benefit}</Typography>
+                          <Typography variant="caption" display="block" color="success.main">How to apply: {item.how_to_apply}</Typography>
+                        </Box>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </Box>
+
+              {/* Monthly Cash Flow */}
+              {result.monthly_cash_flow?.length > 0 && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Monthly Cash Flow</Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600 }}>Month</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Expense</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>Income</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {result.monthly_cash_flow.map((item: any, i: number) => (
+                            <TableRow key={i}>
+                              <TableCell>{item.month}</TableCell>
+                              <TableCell sx={{ color: 'error.main' }}>{item.expense}</TableCell>
+                              <TableCell sx={{ color: 'success.main' }}>{item.income}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Business Plan Summary */}
+              {result.business_plan_summary && (
+                <Alert severity="info" icon={<Spa />}>
+                  <Typography variant="subtitle2" gutterBottom>Business Plan Summary</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{result.business_plan_summary}</Typography>
+                </Alert>
+              )}
+            </>
+          ) : (
+            <ResultCard data={result} loading={false} error="" />
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
@@ -446,15 +911,18 @@ function WeatherAlerts() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [detectedCity, setDetectedCity] = useState('');
+  const autoFetched = useRef(false);
 
-  const submit = async () => {
+  const submitWithWeather = useCallback(async (weatherOverride?: any, cityOverride?: string) => {
     setLoading(true); setError(''); setResult(null);
     try {
       const token = localStorage.getItem('token');
-      let weatherData: any = {};
-      if (form.city) {
+      let weatherData: any = weatherOverride || {};
+      const cityVal = cityOverride ?? form.city;
+      if (!weatherData.current && cityVal) {
         try {
-          const wRes = await fetch(`${API_BASE}/api/weather/current?city=${encodeURIComponent(form.city)}`, {
+          const wRes = await fetch(`${API_BASE}/api/weather/current?city=${encodeURIComponent(cityVal)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           const wJson = await wRes.json();
@@ -464,14 +932,42 @@ function WeatherAlerts() {
       if (!weatherData.current) {
         weatherData = {
           current: { temperature: 30, humidity: 70, description: 'Partly cloudy', wind_speed: 12 },
-          location: { name: form.city || form.region },
+          location: { name: cityVal || form.region },
         };
       }
       const res = await groqFetch('weather-alerts', { weather_data: weatherData, crops: form.crops, region: form.region, language: form.language });
       if (res.success) setResult(res.data); else setError(res.error || 'Failed');
     } catch (e: any) { setError(e.message); }
     setLoading(false);
-  };
+  }, [form]);
+
+  // Auto-detect location and fetch alerts on mount
+  useEffect(() => {
+    if (autoFetched.current) return;
+    autoFetched.current = true;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            const token = localStorage.getItem('token');
+            const wRes = await fetch(`${API_BASE}/api/weather/current?lat=${latitude}&lon=${longitude}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const wJson = await wRes.json();
+            if (wJson.success) {
+              const cityName = wJson.location?.name || '';
+              setDetectedCity(cityName);
+              setForm(f => ({ ...f, city: cityName }));
+              submitWithWeather(wJson, cityName);
+            }
+          } catch { /* silent */ }
+        },
+        () => { /* geolocation denied – user can enter city manually */ }
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box>
@@ -480,6 +976,7 @@ function WeatherAlerts() {
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         AI-powered farming alerts based on weather conditions
+        {detectedCity && <Chip icon={<MyLocation />} label={`Location: ${detectedCity}`} size="small" sx={{ ml: 1 }} color="primary" variant="outlined" />}
       </Typography>
       <Box sx={formGrid()}>
         <TextField fullWidth size="small" label="City" value={form.city} placeholder="e.g. Pune, Delhi"
@@ -500,7 +997,7 @@ function WeatherAlerts() {
         </FormControl>
       </Box>
       <Button variant="contained" sx={{ mt: 3, bgcolor: '#f6ad55', '&:hover': { bgcolor: '#dd6b20' } }}
-        startIcon={<WbSunny />} onClick={submit} disabled={loading}>
+        startIcon={<WbSunny />} onClick={() => submitWithWeather()} disabled={loading}>
         {loading ? 'Analyzing...' : 'Get Smart Alerts'}
       </Button>
 
@@ -646,21 +1143,76 @@ function VoiceAdvisory() {
   const [error, setError] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [listenStatus, setListenStatus] = useState<'idle' | 'listening' | 'processing'>('idle');
+  const recognitionRef = useRef<any>(null);
 
   const startListening = useCallback(() => {
+    // Stop any previous recognition
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch { /* ignore */ }
+    }
+
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setError('Speech recognition not supported in this browser'); return; }
+
     const recognition = new SR();
+    recognitionRef.current = recognition;
     const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN' };
     recognition.lang = langMap[language] || 'en-IN';
     recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (e: any) => { setQuery(e.results[0][0].transcript); };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
+    recognition.interimResults = true; // Show partial results
+
+    // Set listening state immediately before start
+    setIsListening(true);
+    setListenStatus('listening');
+    setError('');
+
+    let hasResult = false;
+
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setQuery(transcript);
+      if (e.results[0].isFinal) {
+        hasResult = true;
+        setListenStatus('processing');
+      }
+    };
+
+    recognition.onerror = (e: any) => {
+      console.warn('Speech recognition error:', e.error);
+      if (e.error === 'no-speech') {
+        setError('No speech detected. Please try again and speak clearly.');
+      } else if (e.error === 'audio-capture') {
+        setError('Microphone not found. Please check your microphone settings.');
+      } else if (e.error === 'not-allowed') {
+        setError('Microphone access denied. Please allow microphone access.');
+      }
+      setIsListening(false);
+      setListenStatus('idle');
+    };
+
+    recognition.onend = () => {
+      // Add a brief delay before hiding the listening indicator
+      setTimeout(() => {
+        setIsListening(false);
+        setListenStatus('idle');
+      }, hasResult ? 500 : 1500);
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      setError('Failed to start speech recognition. Please try again.');
+      setIsListening(false);
+      setListenStatus('idle');
+    }
   }, [language]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* ignore */ }
+    }
+  }, []);
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -708,8 +1260,19 @@ function VoiceAdvisory() {
           InputProps={{
             endAdornment: (
               <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <Tooltip title={isListening ? 'Listening...' : 'Speak'}>
-                  <IconButton onClick={startListening} color={isListening ? 'error' : 'default'}>
+                <Tooltip title={isListening ? 'Click to stop' : 'Click to speak'}>
+                  <IconButton
+                    onClick={isListening ? stopListening : startListening}
+                    color={isListening ? 'error' : 'default'}
+                    sx={isListening ? {
+                      animation: 'pulse 1.5s ease-in-out infinite',
+                      '@keyframes pulse': {
+                        '0%': { transform: 'scale(1)' },
+                        '50%': { transform: 'scale(1.15)' },
+                        '100%': { transform: 'scale(1)' },
+                      },
+                    } : {}}
+                  >
                     <Mic />
                   </IconButton>
                 </Tooltip>
@@ -724,7 +1287,18 @@ function VoiceAdvisory() {
         />
       </Box>
 
-      {isListening && <Alert severity="info" sx={{ mt: 2 }}>Listening... Speak now</Alert>}
+      {isListening && (
+        <Alert severity="info" sx={{ mt: 2, display: 'flex', alignItems: 'center' }} icon={<Mic />}>
+          <Box>
+            <Typography variant="body2" fontWeight={600}>
+              {listenStatus === 'processing' ? 'Processing your speech...' : 'Listening... Speak now'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Click the mic button again to stop
+            </Typography>
+          </Box>
+        </Alert>
+      )}
 
       {result && !loading && !error && (
         <Box sx={{ mt: 3 }}>
@@ -792,7 +1366,7 @@ export default function SmartAdvisor() {
           Smart AI Advisory
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Powered by Groq AI — ultra-fast, multilingual farming intelligence
+          Ultra-fast, multilingual farming intelligence
         </Typography>
       </Box>
 

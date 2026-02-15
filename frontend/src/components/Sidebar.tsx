@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
     { key: 'communityForum', icon: <Forum />, path: '/dashboard/community-forum', badge: 'Social' },
     { key: 'chatbot', icon: <Chat />, path: '/dashboard/chatbot', badge: 'Beta' },
     { key: 'multilingualChat', icon: <Translate />, path: '/dashboard/multilingual-chatbot' },
-    { key: 'smartAdvisor', icon: <AutoAwesome />, path: '/dashboard/smart-advisor', badge: 'Groq' },
+    { key: 'smartAdvisor', icon: <AutoAwesome />, path: '/dashboard/smart-advisor', badge: 'AI' },
   ];
 
   const collapsedWidth = 64;

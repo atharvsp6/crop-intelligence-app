@@ -9,6 +9,8 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -29,11 +31,14 @@ interface SidebarProps {
   open: boolean;
   width?: number;
   collapsedWidth?: number;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
+const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const { t } = useTranslation();
 
@@ -51,21 +56,31 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
   ];
 
   const collapsedWidth = 64;
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
+
   return (
     <Drawer
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
       anchor="left"
       open={open}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
       sx={{
-        width: { xs: 0, md: open ? `${width}px` : `${collapsedWidth}px` },
+        width: isMobile ? 0 : (open ? `${width}px` : `${collapsedWidth}px`),
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: { xs: 0, md: open ? `${width}px` : `${collapsedWidth}px` },
+          width: isMobile ? `${width}px` : (open ? `${width}px` : `${collapsedWidth}px`),
           boxSizing: 'border-box',
-          marginTop: '72px',
-          padding: { xs: 0, md: open ? '28px 18px 32px' : '28px 8px 32px' },
+          marginTop: isMobile ? 0 : '72px',
+          padding: open ? '28px 18px 32px' : '28px 8px 32px',
           border: 'none',
-          display: { xs: 'none', md: 'flex' },
+          display: 'flex',
           flexDirection: 'column',
           gap: 28,
           overflowX: 'hidden',
@@ -92,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272 }) => {
             return (
               <ListItemButton
                 key={item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavigate(item.path)}
                 selected={selected}
                 sx={{
                   borderRadius: 2,

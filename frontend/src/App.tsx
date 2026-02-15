@@ -28,7 +28,7 @@ function App() {
     const storedPref = localStorage.getItem('yieldwise.theme');
     return storedPref ? storedPref === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [sidebarOpen, setSidebarOpen] = React.useState(() => window.innerWidth >= 900);
 
   React.useEffect(() => {
     const root = document.documentElement;
@@ -234,7 +234,7 @@ function App() {
                   onSidebarToggle={handleSidebarToggle}
                 />
                 <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-                  <Sidebar open={sidebarOpen} width={SIDEBAR_WIDTH} />
+                  <Sidebar open={sidebarOpen} width={SIDEBAR_WIDTH} onClose={() => setSidebarOpen(false)} />
                   <Box
                     component="main"
                     sx={{

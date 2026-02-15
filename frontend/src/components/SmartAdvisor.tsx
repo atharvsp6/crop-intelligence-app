@@ -11,7 +11,7 @@ import {
   Forum, RecordVoiceOver, Science, Spa,
   CheckCircle, Mic, VolumeUp, Send,
   WaterDrop, Thermostat, LocationOn,
-  Warning, LocalHospital, Shield, Eco, AttachMoney, CalendarMonth, 
+  Warning, LocalHospital, Shield, EnergySavingsLeaf, AttachMoney, CalendarMonth, 
   MyLocation,
 } from '@mui/icons-material';
 import { API_BASE } from '../config';
@@ -382,7 +382,7 @@ function DiseaseIntelligence() {
                       {result.treatment_plan.organic_remedies?.length > 0 && (
                         <Paper variant="outlined" sx={{ p: 2 }}>
                           <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                            <Eco fontSize="small" color="success" /> Organic Remedies
+                            <EnergySavingsLeaf fontSize="small" color="success" /> Organic Remedies
                           </Typography>
                           {result.treatment_plan.organic_remedies.map((r: any, i: number) => (
                             <Box key={i} sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'success.light' }}>

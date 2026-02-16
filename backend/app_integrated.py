@@ -233,6 +233,27 @@ user_manager = UserManager()
 weather_service = WeatherService()
 dashboard_service = DashboardService()
 
+# Initialize chatbot
+try:
+    if MultilingualAgriChatbot:
+        GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
+        GROQ_MODEL = os.environ.get('GROQ_CHATBOT_MODEL', 'mixtral-8x7b-32768')
+        if GROQ_API_KEY:
+            crop_chatbot = MultilingualAgriChatbot(GROQ_API_KEY, GROQ_MODEL)
+            print(f"[Chatbot] Multilingual chatbot initialized successfully with Groq model: {GROQ_MODEL}")
+        else:
+            print("[Chatbot] GROQ_API_KEY not found, chatbot disabled")
+            crop_chatbot = None
+    else:
+        print("[Chatbot] MultilingualAgriChatbot not available, trying basic CropChatbot")
+        from chatbot import CropChatbot
+        crop_chatbot = CropChatbot()
+except Exception as e:
+    print(f"[Chatbot] Failed to initialize chatbot: {e}")
+    import traceback
+    print(traceback.format_exc())
+    crop_chatbot = None
+
 # =============================================================================
 # --- START: NEW CONFIGURATION ROUTE ---
 # This new route will provide public API keys to the frontend.
@@ -265,21 +286,17 @@ def ping():
 multilingual_chatbot = None
 multilingual_chatbot_init_error = None
 if MultilingualAgriChatbot:
-    if GEMINI_API_KEY:
+    _GROQ_KEY = os.environ.get('GROQ_API_KEY')
+    _GROQ_MODEL = os.environ.get('GROQ_CHATBOT_MODEL', 'llama-3.3-70b-versatile')
+    if _GROQ_KEY:
         try:
-            # Allow override of model via env MULTILINGUAL_GEMINI_MODEL else fallback inside component
-            override_model = os.environ.get('MULTILINGUAL_GEMINI_MODEL')
-            multilingual_chatbot = MultilingualAgriChatbot(GEMINI_API_KEY)
-            if override_model and hasattr(multilingual_chatbot, 'model'):
-                try:
-                    import google.generativeai as _genai
-                    multilingual_chatbot.model = _genai.GenerativeModel(override_model)
-                except Exception as _me:
-                    multilingual_chatbot_init_error = f"Model override failed: {_me}"
-                    print(multilingual_chatbot_init_error)
+            multilingual_chatbot = MultilingualAgriChatbot(_GROQ_KEY, _GROQ_MODEL)
+            print(f"[Multilingual Chatbot] Initialized with Groq model: {_GROQ_MODEL}")
         except Exception as _e:
             multilingual_chatbot_init_error = str(_e)
             print(f"Failed to init MultilingualAgriChatbot: {_e}")
+    else:
+        print("[Multilingual Chatbot] GROQ_API_KEY not found, multilingual chatbot disabled")
 
 
 # =============================================================================
@@ -723,10 +740,13 @@ def google_login():
         result = user_manager.google_auth_token(access_token=access_token, id_token=id_token)
         
         if result['success']:
+            # Create Flask-JWT-Extended token for consistent authentication
+            access_token_jwt = create_access_token(identity=result['user']['id'])
+            
             return jsonify({
                 'success': True,
                 'message': 'Google login successful',
-                'token': result['token'],
+                'token': access_token_jwt,
                 'user': result['user']
             }), 200
         else:
@@ -771,6 +791,29 @@ def update_profile():
         data = request.get_json()
         
         result = user_manager.update_user_profile(user_id, data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/auth/profile/photo', methods=['PUT'])
+@jwt_required()
+def upload_profile_photo():
+    """Upload or update profile photo (accepts base64 data URL)"""
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        photo_data = data.get('profile_photo', '')
+        
+        if not photo_data:
+            return jsonify({'error': 'No photo data provided'}), 400
+        
+        # Limit photo size (roughly 2MB in base64)
+        if len(photo_data) > 2_800_000:
+            return jsonify({'error': 'Photo too large. Max 2MB.'}), 400
+        
+        result = user_manager.update_user_profile(user_id, {'profile_photo': photo_data})
+        if result.get('success'):
+            return jsonify({'success': True, 'message': 'Photo updated', 'profile_photo': photo_data})
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -934,14 +977,60 @@ def chat_with_bot():
         if not data.get('message'):
             return jsonify({'error': 'Message is required'}), 400
         
-        response = crop_chatbot.chat(data['message'], user_id)
+        if crop_chatbot is None:
+            return jsonify({
+                'success': True,
+                'response': 'The AI chatbot is currently unavailable. Please try again later.',
+                'fallback_response': 'The AI chatbot is temporarily disabled.'
+            })
+        
+        # Gather user name for personalization
+        user_name = ''
+        try:
+            profile = user_manager.get_user_profile(user_id)
+            if profile.get('success'):
+                user_name = profile['user'].get('name', '') or profile['user'].get('full_name', '')
+        except Exception:
+            pass
+        
+        # Gather real-time weather if location provided
+        weather_context = ''
+        lat = data.get('lat')
+        lon = data.get('lon')
+        if lat and lon:
+            try:
+                wd = weather_service.get_current_weather(float(lat), float(lon))
+                if wd.get('success'):
+                    c = wd.get('current', {})
+                    loc = wd.get('location', {})
+                    weather_context = (
+                        f"\n[Current weather at {loc.get('name', 'user location')}: "
+                        f"{c.get('temperature')}°C, feels like {c.get('feels_like')}°C, "
+                        f"{c.get('description')}, humidity {c.get('humidity')}%, "
+                        f"wind {c.get('wind_speed')} m/s]"
+                    )
+            except Exception:
+                pass
+        
+        # Build enriched message
+        enriched_msg = data['message']
+        if user_name or weather_context:
+            enriched_msg = (
+                f"[User name: {user_name}. Address them by name.]{weather_context}\n\n"
+                f"User's question: {data['message']}"
+            )
+        
+        response = crop_chatbot.chat(enriched_msg, user_id)
         
         # Update user activity
         user_manager.update_user_activity(user_id, 'chatbot_interaction')
         
         return jsonify(response)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Chatbot Error] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'fallback_response': 'An error occurred. Please try again.'}), 500
 
 @app.route('/api/chatbot/recommendations', methods=['POST'])
 @jwt_required()
@@ -954,6 +1043,9 @@ def get_crop_recommendations():
         if not crop_type:
             return jsonify({'error': 'crop_type is required'}), 400
         
+        if crop_chatbot is None:
+            return jsonify({'success': False, 'error': 'Chatbot not available'}), 503
+        
         response = crop_chatbot.get_crop_recommendations(
             crop_type=crop_type,
             location=data.get('location'),
@@ -963,6 +1055,7 @@ def get_crop_recommendations():
         
         return jsonify(response)
     except Exception as e:
+        print(f"[Chatbot Recommendations Error] {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chatbot/conversation-summary', methods=['GET'])
@@ -970,6 +1063,8 @@ def get_crop_recommendations():
 def get_conversation_summary():
     try:
         user_id = get_jwt_identity()
+        if crop_chatbot is None:
+            return jsonify({'success': False, 'error': 'Chatbot not available'}), 503
         response = crop_chatbot.get_conversation_summary(user_id)
         return jsonify(response)
     except Exception as e:
@@ -980,6 +1075,8 @@ def get_conversation_summary():
 def clear_conversation_history():
     try:
         user_id = get_jwt_identity()
+        if crop_chatbot is None:
+            return jsonify({'success': False, 'error': 'Chatbot not available'}), 503
         response = crop_chatbot.clear_history(user_id)
         return jsonify(response)
     except Exception as e:
@@ -998,12 +1095,41 @@ if multilingual_chatbot and _create_ml_routes:
             data = request.get_json() or {}
             query = data.get('query','')
             user_lang = data.get('language','en')
+            user_name = data.get('user_name', '')
             if not query:
                 return jsonify({'error':'Query is required'}), 400
             # Language auto-detect if user sets auto
             if user_lang == 'auto':
                 user_lang = multilingual_chatbot.detect_language(query)
-            resp = multilingual_chatbot.generate_response(query, user_lang)
+            
+            # Gather weather context if lat/lon provided
+            weather_context = ''
+            lat = data.get('lat')
+            lon = data.get('lon')
+            if lat and lon:
+                try:
+                    wd = weather_service.get_current_weather(float(lat), float(lon))
+                    if wd.get('success'):
+                        c = wd.get('current', {})
+                        loc = wd.get('location', {})
+                        weather_context = (
+                            f"\n[Current weather at {loc.get('name', 'user location')}: "
+                            f"{c.get('temperature')}°C, feels like {c.get('feels_like')}°C, "
+                            f"{c.get('description')}, humidity {c.get('humidity')}%, "
+                            f"wind {c.get('wind_speed')} m/s]"
+                        )
+                except Exception:
+                    pass
+            
+            # Enrich query with user context
+            enriched_query = query
+            if user_name or weather_context:
+                enriched_query = (
+                    f"[User name: {user_name}. Address them by name.]{weather_context}\n\n"
+                    f"User's question: {query}"
+                )
+            
+            resp = multilingual_chatbot.generate_response(enriched_query, user_lang)
             return jsonify({'success': True, **resp})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
@@ -2552,8 +2678,10 @@ def groq_voice_intent():
             "multilingual-chatbot, smart-advisor, profile. "
             "The smart-advisor has sub-tabs: crop-advice(0), disease-intel(1), market(2), finance(3), weather(4), forum-ai(5), voice(6). "
             "Based on the user's spoken command, determine which section they want to go to and/or what action they want. "
+            "If the user is asking a general question (like current temperature, farming advice, crop info, etc.) "
+            "that does NOT map to a specific section navigation, set action to 'answer' and section to 'none'. "
             "Return valid JSON: "
-            '{"section": "route-name", "sub_tab": null or number, "action": "navigate|ask|predict|detect|search", '
+            '{"section": "route-name or none", "sub_tab": null or number, "action": "navigate|ask|predict|detect|search|answer", '
             '"extracted_query": "any specific question or data from the command", '
             '"confidence": 0.0-1.0, "summary": "brief description of what user wants"}'
         )
@@ -2564,6 +2692,65 @@ def groq_voice_intent():
         return jsonify({"success": True, "intent": result})
     except Exception as e:
         logger.error("Voice intent error: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --- 12b. Voice Answer – answer general questions via Groq ---
+@app.route('/api/groq/voice-answer', methods=['POST'])
+def groq_voice_answer():
+    """Answer a general question from voice command using Groq LLM with real-time weather & location."""
+    guard = _groq_guard()
+    if guard:
+        return guard
+    try:
+        from groq_services import _chat, FAST_MODEL
+        data = request.get_json(force=True)
+        question = data.get('question', '')
+        user_name = data.get('user_name', '')
+        lat = data.get('lat')
+        lon = data.get('lon')
+        if not question.strip():
+            return jsonify({"success": False, "error": "No question provided"}), 400
+
+        # Fetch real-time weather if location is available
+        weather_context = ""
+        if lat and lon:
+            try:
+                weather_data = weather_service.get_current_weather(float(lat), float(lon))
+                if weather_data.get('success'):
+                    curr = weather_data.get('current', {})
+                    loc = weather_data.get('location', {})
+                    weather_context = (
+                        f"\n\nCurrent weather data for {loc.get('name', 'user location')}:\n"
+                        f"- Temperature: {curr.get('temperature', 'N/A')}°C (Feels like {curr.get('feels_like', 'N/A')}°C)\n"
+                        f"- Humidity: {curr.get('humidity', 'N/A')}%\n"
+                        f"- Conditions: {curr.get('description', 'N/A')}\n"
+                        f"- Wind Speed: {curr.get('wind_speed', 'N/A')} m/s\n"
+                        f"- Visibility: {curr.get('visibility', 'N/A')} km\n"
+                    )
+                    sun = weather_data.get('sun', {})
+                    if sun:
+                        weather_context += f"- Sunrise: {sun.get('sunrise', 'N/A')}, Sunset: {sun.get('sunset', 'N/A')}\n"
+            except Exception as we:
+                logger.warning("Failed to fetch weather for voice-answer: %s", we)
+
+        name_greeting = f"The user's name is {user_name}. Address them by name. " if user_name else ""
+
+        system = (
+            f"You are a helpful agricultural AI assistant for Indian farmers (YieldWise app). "
+            f"{name_greeting}"
+            "Answer the user's question concisely and helpfully. "
+            "If weather data is provided below, USE it to give accurate, real-time weather information. "
+            "If it's about crops, farming, markets, or agriculture, give specific practical advice. "
+            "For other topics, answer briefly and helpfully. "
+            "Keep your answer under 150 words. Be direct and useful."
+            f"{weather_context}"
+        )
+
+        answer = _chat(system, question, model=FAST_MODEL, max_tokens=500, temperature=0.5)
+        return jsonify({"success": True, "answer": answer})
+    except Exception as e:
+        logger.error("Voice answer error: %s", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 

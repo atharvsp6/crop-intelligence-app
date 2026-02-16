@@ -162,3 +162,55 @@ export async function stopAndTranscribe(language?: string): Promise<Transcriptio
   const blob = await stopRecording();
   return transcribeAudio(blob, language);
 }
+
+// ─── Voice Answer (for general questions) ─────────────────────────
+
+export interface VoiceAnswerResult {
+  success: boolean;
+  answer?: string;
+  error?: string;
+}
+
+/**
+ * Get the user's current geolocation.
+ */
+export function getUserLocation(): Promise<{ lat: number; lon: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000, enableHighAccuracy: false }
+    );
+  });
+}
+
+/**
+ * Send a general question to the backend for a direct AI answer,
+ * enriched with user location + name for weather/personalisation.
+ */
+export async function getVoiceAnswer(
+  question: string,
+  opts?: { userName?: string; lat?: number; lon?: number }
+): Promise<VoiceAnswerResult> {
+  const token = localStorage.getItem('token');
+
+  const res = await fetch(`${API_BASE}/api/groq/voice-answer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      question,
+      user_name: opts?.userName || '',
+      lat: opts?.lat,
+      lon: opts?.lon,
+    }),
+  });
+
+  return res.json();
+}

@@ -133,14 +133,17 @@ class UserManager:
             # Generate JWT token
             token = self.generate_jwt_token(user['_id'])
             
+            user_full_name = user.get('full_name', '')
             return {
                 'success': True,
                 'user': {
                     'id': str(user['_id']),
+                    'name': user_full_name,
                     'username': user.get('username', ''),
                     'email': user['email'],
-                    'full_name': user.get('full_name', ''),
+                    'full_name': user_full_name,
                     'location': user.get('location'),
+                    'profile_photo': user.get('profile_photo', ''),
                     'profile': user.get('profile', {}),
                     'stats': user.get('stats', {})
                 },
@@ -180,14 +183,14 @@ class UserManager:
         try:
             allowed_fields = [
                 'first_name', 'last_name', 'location', 'farm_size_acres',
-                'primary_crops', 'experience_years', 'farming_type'
+                'primary_crops', 'experience_years', 'farming_type', 'profile_photo'
             ]
             
             update_data = {}
             profile_updates = {}
             
             for field, value in profile_data.items():
-                if field in ['first_name', 'last_name', 'location']:
+                if field in ['first_name', 'last_name', 'location', 'profile_photo', 'full_name']:
                     update_data[field] = value.strip() if isinstance(value, str) else value
                 elif field in ['farm_size_acres', 'experience_years', 'farming_type', 'primary_crops']:
                     profile_updates[f'profile.{field}'] = value
@@ -291,16 +294,19 @@ class UserManager:
                 return {'success': False, 'error': 'User not found'}
             
             # Return user info without sensitive data
+            user_full_name = user.get('full_name', '')
             user_info = {
                 'id': str(user['_id']),
+                'name': user_full_name,
                 'username': user.get('username', ''),
                 'email': user['email'],
-                'full_name': user.get('full_name', ''),
+                'full_name': user_full_name,
                 'location': user.get('location', ''),
                 'farm_size': user.get('farm_size', ''),
                 'primary_crops': user.get('primary_crops', []),
                 'created_at': user.get('created_at'),
                 'last_login': user.get('last_login'),
+                'profile_photo': user.get('profile_photo', ''),
                 'profile': user.get('profile', {}),
                 'stats': user.get('stats', {})
             }
@@ -353,6 +359,8 @@ class UserManager:
             name = ''
             google_id = None
             
+            picture = None
+
             if access_token:
                 # Use access_token to call Google userinfo API
                 try:
@@ -368,6 +376,7 @@ class UserManager:
                     email = userinfo.get('email')
                     name = userinfo.get('name', '')
                     google_id = userinfo.get('sub')
+                    picture = userinfo.get('picture', '')
                 except Exception as api_error:
                     return {'success': False, 'error': f'Failed to verify access token: {str(api_error)}'}
             
@@ -411,27 +420,29 @@ class UserManager:
                         {'$set': {'google_id': google_id}}
                     )
                 
-                # Update last login
+                # Update last login and picture if available
+                update_fields = {'last_login': datetime.utcnow()}
+                if picture and not existing_user.get('profile_photo'):
+                    update_fields['profile_photo'] = picture
                 self.users_collection.update_one(
                     {'_id': existing_user['_id']},
-                    {'$set': {'last_login': datetime.utcnow()}}
+                    {'$set': update_fields}
                 )
                 
-                # Generate JWT token
-                token = self.generate_jwt_token(existing_user['_id'])
-                
+                user_full_name = existing_user.get('full_name', name)
                 return {
                     'success': True,
                     'user': {
                         'id': str(existing_user['_id']),
+                        'name': user_full_name,
                         'username': existing_user.get('username', ''),
                         'email': existing_user['email'],
-                        'full_name': existing_user.get('full_name', name),
+                        'full_name': user_full_name,
                         'location': existing_user.get('location'),
+                        'profile_photo': existing_user.get('profile_photo') or picture or '',
                         'profile': existing_user.get('profile', {}),
                         'stats': existing_user.get('stats', {})
-                    },
-                    'token': token
+                    }
                 }
             else:
                 # Create new user from Google info
@@ -450,6 +461,7 @@ class UserManager:
                     'email': email.lower().strip(),
                     'google_id': google_id,
                     'full_name': name.strip() if name else username,
+                    'profile_photo': picture or '',
                     'location': None,
                     'farm_size': '',
                     'primary_crops': [],
@@ -472,21 +484,20 @@ class UserManager:
                 
                 result = self.users_collection.insert_one(user_data)
                 
-                # Generate JWT token
-                token = self.generate_jwt_token(result.inserted_id)
-                
+                user_full_name = name if name else username
                 return {
                     'success': True,
                     'user': {
                         'id': str(result.inserted_id),
+                        'name': user_full_name,
                         'username': username,
                         'email': email,
-                        'full_name': name if name else username,
+                        'full_name': user_full_name,
                         'location': None,
+                        'profile_photo': picture or '',
                         'profile': user_data['profile'],
                         'stats': user_data['stats']
-                    },
-                    'token': token
+                    }
                 }
         
         except Exception as e:

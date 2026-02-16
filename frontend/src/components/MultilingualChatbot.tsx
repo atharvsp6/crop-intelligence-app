@@ -33,6 +33,7 @@ import {
 import axios from 'axios';
 import { API_BASE } from '../config';
 import GroqMicButton from './GroqMicButton';
+import { useAuth } from '../context/AuthContext';
 
 interface ChatMessage {
   role: 'user' | 'bot';
@@ -66,13 +67,26 @@ const quickQuestions = [
 ];
 
 const MultilingualChatbot: React.FC = () => {
+  const { user } = useAuth();
   const [language, setLanguage] = useState('auto');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [serviceStatus, setServiceStatus] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
+
+  // Get user location once on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => {},
+        { timeout: 5000, enableHighAccuracy: false }
+      );
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -116,7 +130,10 @@ const MultilingualChatbot: React.FC = () => {
     try {
       const res = await axios.post(`${API_BASE}/api/mchatbot`, {
         query: textToSend,
-        language: language === 'auto' ? 'auto' : language
+        language: language === 'auto' ? 'auto' : language,
+        user_name: user?.name || user?.full_name || '',
+        lat: userLocation?.lat,
+        lon: userLocation?.lon,
       });
       
       if (res.data.success) {
@@ -318,11 +335,12 @@ const MultilingualChatbot: React.FC = () => {
                         height: 24,
                         bgcolor: m.role === 'user' ? 'rgba(255,255,255,0.2)' : 'primary.main',
                       }}
+                      src={m.role === 'user' ? (user?.profile_photo || undefined) : undefined}
                     >
-                      {m.role === 'user' ? <Person sx={{ fontSize: 16 }} /> : <SmartToy sx={{ fontSize: 16 }} />}
+                      {m.role === 'user' ? (!user?.profile_photo && <Person sx={{ fontSize: 16 }} />) : <SmartToy sx={{ fontSize: 16 }} />}
                     </Avatar>
                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                      {m.role === 'user' ? 'You' : 'AI Assistant'}
+                      {m.role === 'user' ? (user?.name || 'You') : 'AI Assistant'}
                     </Typography>
                     {m.languageName && (
                       <Chip

@@ -6,6 +6,9 @@ interface User {
   id: string;
   name: string;
   email: string;
+  profile_photo?: string;
+  full_name?: string;
+  [key: string]: any;
 }
 
 interface AuthContextType {
@@ -13,6 +16,7 @@ interface AuthContextType {
   token: string | null;
   login: (user: User, token: string) => void;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -78,11 +82,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : prev);
+  };
+
   const value: AuthContextType = {
     user,
     token,
     login,
     logout,
+    updateUser,
     isAuthenticated: !!user,
     isLoading,
   };

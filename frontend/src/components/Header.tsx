@@ -24,7 +24,6 @@ import {
   Notifications,
   AccountCircle,
   Logout,
-  Settings,
   AutoAwesome,
   Language,
   Check,
@@ -237,6 +236,7 @@ const Header: React.FC<HeaderProps> = ({
 
           <Avatar
             onClick={handleClick}
+            src={user?.profile_photo || undefined}
             sx={{
               width: 40,
               height: 40,
@@ -278,12 +278,6 @@ const Header: React.FC<HeaderProps> = ({
                 <AccountCircle fontSize="small" />
               </ListItemIcon>
               <ListItemText primary={user?.name || t('header.menu.profilePrimary')} secondary={t('header.menu.profileSecondary')} />
-            </MenuItem>
-            <MenuItem onClick={() => { handleClose(); navigate('/dashboard/profile'); }}>
-              <ListItemIcon>
-                <Settings fontSize="small" />
-              </ListItemIcon>
-              <ListItemText primary={t('header.menu.settings')} />
             </MenuItem>
             <Divider sx={{ borderColor: 'rgba(125, 228, 154, 0.12)' }} />
             <MenuItem onClick={handleLogout}>

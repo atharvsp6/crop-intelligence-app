@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -30,6 +30,7 @@ import {
 import axios from 'axios';
 import { API_BASE } from '../config';
 import GroqMicButton from './GroqMicButton';
+import { useAuth } from '../context/AuthContext';
 
 interface ChatMessage {
   id: string;
@@ -49,10 +50,11 @@ interface ChatResponse {
 }
 
 const Chatbot: React.FC = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your AI farming assistant. I can help you with crop recommendations, disease identification, market advice, and weather planning. What would you like to know?',
+      text: `Hello${user?.name ? ` ${user.name}` : ''}! I'm your AI farming assistant. I can help you with crop recommendations, disease identification, market advice, and weather planning. What would you like to know?`,
       isUser: false,
       timestamp: new Date(),
     }
@@ -60,7 +62,19 @@ const Chatbot: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Get user location once on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => {},
+        { timeout: 5000, enableHighAccuracy: false }
+      );
+    }
+  }, []);
 
   const quickActions = [
     {
@@ -118,6 +132,8 @@ const Chatbot: React.FC = () => {
       const response = await axios.post<ChatResponse>(`${API_BASE}/api/chatbot/chat`, {
         message,
         context,
+        lat: userLocation?.lat,
+        lon: userLocation?.lon,
       }, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -277,8 +293,11 @@ const Chatbot: React.FC = () => {
                     </Paper>
                     
                     {message.isUser && (
-                      <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                        <Person />
+                      <Avatar
+                        src={user?.profile_photo || undefined}
+                        sx={{ bgcolor: 'secondary.main' }}
+                      >
+                        {!user?.profile_photo && <Person />}
                       </Avatar>
                     )}
                   </Box>

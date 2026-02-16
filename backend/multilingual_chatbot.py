@@ -1,18 +1,18 @@
-"""Backend-local multilingual chatbot implementation.
+"""Backend-local multilingual chatbot implementation using Groq API.
 Avoids recursive self-import issues under Python 3.13 when root project file name matches.
 Provides the symbols expected by app_integrated: MultilingualAgriChatbot, create_chatbot_routes.
 """
 
-import google.generativeai as genai
+from groq import Groq
 from datetime import datetime
 import re
-import json
 
 
 class MultilingualAgriChatbot:
-    def __init__(self, gemini_api_key: str):
-        genai.configure(api_key=gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    def __init__(self, groq_api_key: str, model_name: str = 'llama-3.3-70b-versatile'):
+        self.client = Groq(api_key=groq_api_key)
+        self.model = model_name
+        print(f"[Chatbot] Initialized Groq client with model: {model_name}")
         self.supported_languages = {
             'hi': 'Hindi', 'mr': 'Marathi', 'ta': 'Tamil', 'te': 'Telugu',
             'gu': 'Gujarati', 'bn': 'Bengali', 'en': 'English', 'kn': 'Kannada',
@@ -53,20 +53,6 @@ class MultilingualAgriChatbot:
         except Exception:
             return 'en'
 
-    def translate_text(self, text: str, target_lang='en', source_lang='auto'):
-        """Use Gemini for translation instead of googletrans"""
-        try:
-            if source_lang == target_lang or target_lang == 'en':
-                return text
-                
-            lang_names = self.supported_languages.get(target_lang, target_lang)
-            prompt = f"Translate the following text to {lang_names}. Only provide the translation, no explanations:\n\n{text}"
-            
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            print(f"Translation error: {e}")
-            return text
 
     def get_agricultural_context(self, query: str, user_lang='en'):
         lang_name = self.supported_languages.get(user_lang, 'English')
@@ -98,8 +84,20 @@ class MultilingualAgriChatbot:
         try:
             prompt = self.get_agricultural_context(user_query, user_lang)
             
-            response = self.model.generate_content(prompt)
-            answer = response.text.strip()
+            # Use Groq API for fast inference
+            message = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=1024,
+            )
+            
+            answer = message.choices[0].message.content.strip()
             
             # Clean up repeated characters if any
             answer = re.sub(r'([\u0900-\u097F\w])\1{3,}', r'\1\1', answer)
@@ -112,6 +110,9 @@ class MultilingualAgriChatbot:
                 'language_name': self.supported_languages.get(user_lang, 'English')
             }
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"[Chatbot Error] Groq API error: {error_details}")
             error_msg = f"मुझे खेद है, तकनीकी समस्या है" if user_lang == 'hi' else "Sorry, there's a technical issue"
             return {
                 'response': error_msg,
@@ -137,6 +138,67 @@ class MultilingualAgriChatbot:
             query += f" Please respond in {lang_name} language only."
             
         return self.generate_response(query, user_lang)
+
+    def chat(self, user_message: str, user_id=None):
+        """Generate a response for a user message (main chat interface)"""
+        try:
+            # Detect language from user message
+            detected_lang = self.detect_language(user_message)
+            
+            # Generate response in the same language
+            result = self.generate_response(user_message, detected_lang)
+            
+            return {
+                'success': True,
+                'response': result.get('response', 'Unable to generate response'),
+                'timestamp': result.get('timestamp', datetime.now().isoformat())
+            }
+        except Exception as e:
+            print(f"Error in chat: {e}")
+            return {
+                'success': False,
+                'response': 'An error occurred while processing your message',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+
+    def get_crop_recommendations(self, crop_type: str, location=None, season=None, user_id=None):
+        """Get recommendations for a specific crop"""
+        try:
+            query = f"Provide recommendations for growing {crop_type}"
+            if location:
+                query += f" in {location}"
+            if season:
+                query += f" during {season}"
+            
+            result = self.generate_response(query)
+            return {
+                'success': True,
+                'recommendations': result.get('response', ''),
+                'timestamp': result.get('timestamp', datetime.now().isoformat())
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+
+    def get_conversation_summary(self, user_id: str):
+        """Placeholder for conversation summary"""
+        return {
+            'success': True,
+            'summary': 'Conversation summary not yet implemented',
+            'user_id': user_id
+        }
+
+    def clear_history(self, user_id: str):
+        """Placeholder for clearing conversation history"""
+        return {
+            'success': True,
+            'message': 'History cleared',
+            'user_id': user_id
+        }
 
 
 def create_chatbot_routes(*_args, **_kwargs):  # stub to satisfy import

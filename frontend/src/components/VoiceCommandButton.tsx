@@ -24,8 +24,11 @@ import {
   startRecording,
   stopAndTranscribe,
   classifyVoiceIntent,
+  getVoiceAnswer,
+  getUserLocation,
   isRecording as checkRecording,
 } from '../services/groqSpeech';
+import { useAuth } from '../context/AuthContext';
 
 const SECTION_LABELS: Record<string, string> = {
   'dashboard': 'Dashboard',
@@ -43,19 +46,22 @@ const SECTION_LABELS: Record<string, string> = {
 
 const VoiceCommandButton: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [intent, setIntent] = useState<any>(null);
+  const [voiceAnswer, setVoiceAnswer] = useState('');
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'idle' | 'recording' | 'transcribing' | 'classifying' | 'done'>('idle');
+  const [step, setStep] = useState<'idle' | 'recording' | 'transcribing' | 'classifying' | 'answering' | 'done'>('idle');
 
   const reset = useCallback(() => {
     setRecording(false);
     setProcessing(false);
     setTranscript('');
     setIntent(null);
+    setVoiceAnswer('');
     setError('');
     setStep('idle');
   }, []);
@@ -111,16 +117,41 @@ const VoiceCommandButton: React.FC = () => {
 
       if (intentResult.success && intentResult.intent) {
         setIntent(intentResult.intent);
-        setStep('done');
 
-        // Auto-navigate after a brief delay
         const section = intentResult.intent.section;
-        if (section && SECTION_LABELS[section]) {
+        const action = intentResult.intent.action;
+
+        // If it's a general question (no navigable section), get an AI answer
+        if (action === 'answer' || !section || section === 'none' || !SECTION_LABELS[section]) {
+          setStep('answering');
+          const query = intentResult.intent.extracted_query || sttResult.text;
+          try {
+            // Get user location for weather-aware answers
+            const loc = await getUserLocation();
+            const answerResult = await getVoiceAnswer(query, {
+              userName: user?.name || user?.full_name || '',
+              lat: loc?.lat,
+              lon: loc?.lon,
+            });
+            if (answerResult.success && answerResult.answer) {
+              setVoiceAnswer(answerResult.answer);
+            } else {
+              setVoiceAnswer('Sorry, I could not find an answer. Try navigating to the AI Chatbot for more help.');
+            }
+          } catch {
+            setVoiceAnswer('Sorry, I could not get an answer right now. Try the AI Chatbot.');
+          }
+          setStep('done');
+        } else if (SECTION_LABELS[section]) {
+          setStep('done');
+          // Auto-navigate after a brief delay
           setTimeout(() => {
-            let path = `/dashboard/${section}`;
+            const path = section === 'dashboard' ? '/dashboard' : `/dashboard/${section}`;
             navigate(path);
             handleClose();
           }, 1500);
+        } else {
+          setStep('done');
         }
       } else {
         setError(intentResult.error || 'Could not understand the command.');
@@ -144,7 +175,8 @@ const VoiceCommandButton: React.FC = () => {
 
   const navigateToSection = useCallback(
     (section: string) => {
-      navigate(`/dashboard/${section}`);
+      const path = section === 'dashboard' ? '/dashboard' : `/dashboard/${section}`;
+      navigate(path);
       handleClose();
     },
     [navigate, handleClose]
@@ -241,6 +273,12 @@ const VoiceCommandButton: React.FC = () => {
                 <Typography variant="body2">Understanding your command...</Typography>
               </Box>
             )}
+            {step === 'answering' && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                <CircularProgress size={16} />
+                <Typography variant="body2">Getting answer...</Typography>
+              </Box>
+            )}
           </Box>
 
           {/* Transcript */}
@@ -253,7 +291,7 @@ const VoiceCommandButton: React.FC = () => {
           )}
 
           {/* Intent Result */}
-          {intent && (
+          {intent && !voiceAnswer && (
             <Alert severity="success" sx={{ mb: 2 }} icon={<Navigation />}>
               <Typography variant="body2" fontWeight={600}>
                 {intent.summary || `Navigating to ${SECTION_LABELS[intent.section] || intent.section}`}
@@ -272,6 +310,18 @@ const VoiceCommandButton: React.FC = () => {
                   Query: {intent.extracted_query}
                 </Typography>
               )}
+            </Alert>
+          )}
+
+          {/* AI Voice Answer */}
+          {voiceAnswer && (
+            <Alert severity="success" sx={{ mb: 2, '& .MuiAlert-message': { width: '100%' } }}>
+              <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                {intent?.summary || 'AI Answer'}
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {voiceAnswer}
+              </Typography>
             </Alert>
           )}
 

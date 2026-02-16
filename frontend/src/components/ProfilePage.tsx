@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Card,
@@ -12,6 +12,7 @@ import {
   Alert,
   Paper,
   CircularProgress,
+  IconButton,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -20,17 +21,20 @@ import {
   CalendarMonth,
   Save,
   Edit,
+  CameraAlt,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { useAuth } from '../context/AuthContext';
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -38,11 +42,43 @@ const ProfilePage: React.FC = () => {
     crops: '',
   });
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Photo must be under 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      setPhotoPreview(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError('');
     try {
       const token = localStorage.getItem('token');
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      // Upload photo if changed
+      if (photoPreview) {
+        await axios.put(
+          `${API_BASE}/api/auth/profile/photo`,
+          { profile_photo: photoPreview },
+          { headers }
+        );
+        updateUser({ profile_photo: photoPreview });
+      }
+
       await axios.put(
         `${API_BASE}/api/auth/profile`,
         {
@@ -50,15 +86,12 @@ const ProfilePage: React.FC = () => {
           region: form.region,
           crops: form.crops,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
+        { headers }
       );
+      updateUser({ name: form.name, full_name: form.name });
       setEditing(false);
       setSaved(true);
+      setPhotoPreview(null);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save profile. Please try again.');
@@ -80,19 +113,49 @@ const ProfilePage: React.FC = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
-            <Avatar
-              sx={{
-                width: 80,
-                height: 80,
-                fontSize: '2rem',
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.35) 0%, rgba(47, 133, 90, 0.72) 100%)',
-                color: '#0f1411',
-                border: '3px solid rgba(125, 228, 154, 0.45)',
-              }}
-            >
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </Avatar>
+            <Box sx={{ position: 'relative', display: 'inline-block' }}>
+              <Avatar
+                src={photoPreview || user?.profile_photo || undefined}
+                sx={{
+                  width: 80,
+                  height: 80,
+                  fontSize: '2rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.35) 0%, rgba(47, 133, 90, 0.72) 100%)',
+                  color: '#0f1411',
+                  border: '3px solid rgba(125, 228, 154, 0.45)',
+                }}
+              >
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              </Avatar>
+              {editing && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handlePhotoChange}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => fileInputRef.current?.click()}
+                    sx={{
+                      position: 'absolute',
+                      bottom: -4,
+                      right: -4,
+                      bgcolor: 'primary.main',
+                      color: '#fff',
+                      width: 28,
+                      height: 28,
+                      '&:hover': { bgcolor: 'primary.dark' },
+                    }}
+                  >
+                    <CameraAlt sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </>
+              )}
+            </Box>
             <Box>
               <Typography variant="h5" fontWeight={600}>{user?.name || 'User'}</Typography>
               <Typography variant="body2" color="text.secondary">{user?.email || 'No email'}</Typography>

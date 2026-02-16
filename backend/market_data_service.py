@@ -4,9 +4,18 @@ from datetime import datetime, timedelta
 import json
 from database import get_collection
 import logging
+import time
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class MarketDataService:
     def __init__(self):
+        # Initialize logger
+        self.logger = logging.getLogger(__name__)
+        
+        # Initialize session with retry logic
+        self.session = self._create_retry_session()
+        
         # Initialize API keys and endpoints
         self.api_keys = {
             'alpha_vantage': os.environ.get('ALPHA_VANTAGE_API_KEY'),
@@ -93,6 +102,10 @@ class MarketDataService:
             }
         }
 
+        # Cache TTL for failed API calls (to prevent hammering)
+        self.error_cache_ttl = 60  # 1 minute
+        self.error_cache = {}
+        
         # Mapping used for Indian government mandi datasets
         self.govt_commodity_mapping = {
             'wheat': 'Wheat',
@@ -357,6 +370,34 @@ class MarketDataService:
             self.logger.warning(f"AgMarketNet data fetch failed for {commodity}: {e}")
             return None
 
+    def _create_retry_session(self, retries=3, backoff_factor=0.5):
+        """Create a requests session with retry logic"""
+        session = requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=(500, 502, 503, 504),
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
+    
+    def _check_error_cache(self, cache_key):
+        """Check if we recently failed on this API call"""
+        if cache_key in self.error_cache:
+            error_time, error_msg = self.error_cache[cache_key]
+            if time.time() - error_time < self.error_cache_ttl:
+                return error_msg
+        return None
+    
+    def _set_error_cache(self, cache_key, error_msg):
+        """Cache an error to prevent repeated failed calls"""
+        self.error_cache[cache_key] = (time.time(), error_msg)
+
     def _fetch_mandi_records(self, commodity=None, state=None, district=None, limit=50, offset=0):
         """Query the Indian government mandi API and return processed records."""
         try:
@@ -365,6 +406,17 @@ class MarketDataService:
                 return {
                     'success': False,
                     'error': 'Government Open Data API key missing. Set GOVT_OPEN_DATA_KEY or DATA_GOV_IN_API_KEY.',
+                    'records': []
+                }
+
+            # Check error cache to avoid hammering failing API
+            cache_key = f"mandi_{commodity}_{state}_{district}"
+            cached_error = self._check_error_cache(cache_key)
+            if cached_error:
+                self.logger.debug(f"Using cached error for {cache_key}: {cached_error}")
+                return {
+                    'success': False,
+                    'error': f"API temporarily unavailable (cached): {cached_error}",
                     'records': []
                 }
 
@@ -388,10 +440,11 @@ class MarketDataService:
             if district:
                 params['filters[district]'] = district
 
-            response = requests.get(
+            # Use session with retry logic and increased timeout
+            response = self.session.get(
                 "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
                 params=params,
-                timeout=20
+                timeout=30
             )
 
             meta = {
@@ -453,11 +506,31 @@ class MarketDataService:
 
             return self._process_mandi_records(records, meta)
 
-        except Exception as e:
-            self.logger.warning(f"Failed to fetch mandi records: {e}")
+        except requests.exceptions.Timeout as e:
+            error_msg = f"API timeout after 30s: {str(e)}"
+            self.logger.warning(f"Failed to fetch mandi records: {error_msg}")
+            self._set_error_cache(cache_key, error_msg)
             return {
                 'success': False,
-                'error': str(e),
+                'error': 'Government API is currently slow or unavailable. Using cached data if available.',
+                'records': []
+            }
+        except requests.exceptions.ConnectionError as e:
+            error_msg = f"Connection error: {str(e)}"
+            self.logger.warning(f"Failed to fetch mandi records: {error_msg}")
+            self._set_error_cache(cache_key, error_msg)
+            return {
+                'success': False,
+                'error': 'Unable to connect to Government API. Please try again later.',
+                'records': []
+            }
+        except Exception as e:
+            error_msg = str(e)
+            self.logger.warning(f"Failed to fetch mandi records: {error_msg}")
+            self._set_error_cache(cache_key, error_msg)
+            return {
+                'success': False,
+                'error': f'API error: {error_msg}',
                 'records': []
             }
 

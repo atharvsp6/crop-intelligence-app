@@ -10,10 +10,15 @@ from database import get_collection
 import time
 from threading import Thread
 import schedule
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 class RealTimeMarketService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize session with retry logic
+        self.session = self._create_retry_session()
         
         # Free API keys (users should set these environment variables)
         self.api_keys = {
@@ -87,8 +92,28 @@ class RealTimeMarketService:
             }
         }
         
+        # Error cache to prevent hammering failing APIs
+        self.error_cache = {}
+        self.error_cache_ttl = 60  # 1 minute
+        
         # Start background price fetching
         self.start_background_updates()
+    
+    def _create_retry_session(self, retries=3, backoff_factor=0.5):
+        """Create a requests session with retry logic"""
+        session = requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=(500, 502, 503, 504),
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
 
     def start_background_updates(self):
         """Start background thread for periodic price updates"""
@@ -382,7 +407,8 @@ class RealTimeMarketService:
                 'sort': 'arrival_date desc'
             }
             
-            response = requests.get(self.endpoints['data_gov_in'], params=params, timeout=15)
+            # Use session with retry logic and increased timeout
+            response = self.session.get(self.endpoints['data_gov_in'], params=params, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
@@ -414,6 +440,10 @@ class RealTimeMarketService:
                             'data_freshness': 'daily'
                         }
             
+        except requests.exceptions.Timeout as e:
+            self.logger.error(f"Indian Government API timeout: {e}")
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"Indian Government API connection error: {e}")
         except Exception as e:
             self.logger.error(f"Indian Government API error: {e}")
             

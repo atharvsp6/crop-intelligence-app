@@ -163,7 +163,7 @@ const VoiceCommandButton: React.FC = () => {
     } finally {
       setProcessing(false);
     }
-  }, [navigate, handleClose]);
+  }, [navigate, handleClose, user?.name, user?.full_name]);
 
   const toggleRecording = useCallback(() => {
     if (recording || checkRecording()) {

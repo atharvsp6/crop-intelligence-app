@@ -228,8 +228,12 @@ def handle_preflight():
 
 jwt = JWTManager(app)
 
-# Initialize services
-user_manager = UserManager()
+# Initialize services (lazy — app starts even if DB is down)
+try:
+    user_manager = UserManager()
+except Exception as e:
+    print(f"⚠️ UserManager init deferred: {e}")
+    user_manager = None
 weather_service = WeatherService()
 dashboard_service = DashboardService()
 

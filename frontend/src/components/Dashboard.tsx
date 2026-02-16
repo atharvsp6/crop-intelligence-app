@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   Box,
   Card,
@@ -241,6 +243,10 @@ const Dashboard: React.FC = () => {
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState<WeatherErrorType | null>(null);
   const [location, setLocation] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const [dashboardStats, setDashboardStats] = useState<any[] | null>(null);
   const [yieldData, setYieldData] = useState<any[] | null>(null);
   const [soilSignals, setSoilSignals] = useState<any[] | null>(null);
@@ -308,6 +314,7 @@ const Dashboard: React.FC = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          setCoords({ lat: latitude, lon: longitude });
           fetchWeatherData(latitude, longitude);
         },
         (error) => {
@@ -329,6 +336,61 @@ const Dashboard: React.FC = () => {
       setWeatherLoading(false);
     }
   }, [fetchWeatherData]);
+
+  // Fetch Mapbox token from backend config
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/api/config`);
+        if (response.data?.mapboxToken) {
+          setMapboxToken(response.data.mapboxToken);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch mapbox token:', err);
+      }
+    };
+    fetchMapboxToken();
+  }, []);
+
+  // Initialize Mapbox GL map as a background and center on `coords` when available
+  useEffect(() => {
+    if (!mapboxToken || !mapContainerRef.current || mapRef.current || !coords) return;
+
+    try {
+      mapboxgl.accessToken = mapboxToken;
+
+      const map = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [coords.lon, coords.lat],
+        zoom: 13,
+        interactive: false,
+        attributionControl: false,
+      });
+
+      mapRef.current = map;
+
+      // Add a subtle marker at user location
+      new mapboxgl.Marker({ color: '#7DDF92' })
+        .setLngLat([coords.lon, coords.lat])
+        .addTo(map);
+
+      // Dim slightly so the gradient scrim + text stay readable
+      map.on('load', () => {
+        const canvas = map.getCanvas();
+        canvas.style.filter = 'brightness(0.6) saturate(1.2)';
+      });
+    } catch (e) {
+      console.warn('Failed to initialize mapbox-gl:', e);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [mapboxToken, coords]);
 
   useEffect(() => {
     getUserLocation();
@@ -406,34 +468,70 @@ const Dashboard: React.FC = () => {
       <Card
         className="glass-card"
         sx={{
-          p: { xs: 3, md: 4 },
           overflow: 'hidden',
           position: 'relative',
+          borderRadius: 4,
+          minHeight: { xs: 420, md: 370 },
         }}
       >
+        {/* ── Mapbox map as the full card background ── */}
+        <Box
+          ref={mapContainerRef}
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
+            '& canvas': { borderRadius: 'inherit' },
+          }}
+        />
+
+        {/* ── Gradient scrim so text stays readable on the map ── */}
         <Box
           sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: 'none',
+            background:
+              'linear-gradient(135deg, rgba(10,15,12,0.82) 0%, rgba(10,15,12,0.55) 50%, rgba(10,15,12,0.30) 100%)',
+            borderRadius: 'inherit',
+          }}
+        />
+
+        {/* ── Card content overlaying the map ── */}
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 2,
+            p: { xs: 3, md: 4 },
             display: 'flex',
             flexDirection: { xs: 'column', lg: 'row' },
             justifyContent: 'space-between',
             gap: { xs: 3, lg: 4 },
           }}
         >
+          {/* Left: hero text + CTA */}
           <Box sx={{ flex: 1.2 }}>
             <Chip
               label={t('dashboard.hero.badge')}
               size="small"
-              className="chip-muted"
               icon={<ShowChart fontSize="small" />}
-              sx={{ mb: 2 }}
+              sx={{
+                mb: 2,
+                borderRadius: '999px',
+                backgroundColor: 'rgba(125, 223, 146, 0.18)',
+                color: '#fff',
+                backdropFilter: 'blur(4px)',
+                '.MuiChip-icon': { color: '#7DDF92' },
+              }}
             />
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 2 }}>
+            <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
               {t('dashboard.hero.title')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520, mb: 3 }}>
+            <Typography variant="body1" sx={{ maxWidth: 520, mb: 3, color: 'rgba(255,255,255,0.78)' }}>
               {t('dashboard.hero.subtitle')}
             </Typography>
-            <Stack direction="row" spacing={1.5} flexWrap="wrap">
+            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
               {quickInsightChips.map((insight, index) => (
                 <Chip
                   key={index}
@@ -442,7 +540,8 @@ const Dashboard: React.FC = () => {
                   sx={{
                     borderRadius: '999px',
                     backgroundColor: 'rgba(125, 223, 146, 0.16)',
-                    color: 'text.primary',
+                    backdropFilter: 'blur(4px)',
+                    color: '#fff',
                     '.MuiChip-icon': { color: insight.accent },
                   }}
                 />
@@ -459,6 +558,7 @@ const Dashboard: React.FC = () => {
               <Button
                 variant="outlined"
                 size="large"
+                sx={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff', '&:hover': { borderColor: '#7DDF92', background: 'rgba(125,223,146,0.08)' } }}
                 onClick={() => navigate('/dashboard/chatbot')}
               >
                 {t('dashboard.hero.secondaryCta')}
@@ -466,63 +566,86 @@ const Dashboard: React.FC = () => {
             </Stack>
           </Box>
 
+          {/* Right: weather snapshot – frosted glass panel on top of map */}
           <Box
             sx={{
-              flex: 0.9,
+              flex: { lg: 0.55 },
+              alignSelf: { lg: 'flex-start' },
               display: 'flex',
               flexDirection: 'column',
               gap: 2,
-              background: 'var(--bg-surface-subtle)',
+              background: 'rgba(10, 14, 12, 0.55)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
               borderRadius: 3,
-              border: '1px solid var(--border-soft)',
-              p: 3,
+              border: '1px solid rgba(125, 223, 146, 0.22)',
+              p: 2.5,
+              minWidth: { md: 260 },
             }}
           >
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#fff', letterSpacing: '0.04em' }}>
               {t('dashboard.weather.title')}
             </Typography>
 
             {weatherErrorMessage && (
-              <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              <Alert severity="warning" sx={{ borderRadius: 2, py: 0.5, fontSize: '0.75rem' }}>
                 {weatherErrorMessage}
               </Alert>
             )}
 
             {weatherLoading ? (
               <Chip
-                icon={<CircularProgress size={16} />}
+                icon={<CircularProgress size={14} />}
                 label={t('dashboard.weather.loading')}
+                size="small"
                 sx={{ alignSelf: 'flex-start', borderRadius: '999px' }}
               />
             ) : (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-                <Avatar
-                  sx={{
-                    width: 70,
-                    height: 70,
-                    borderRadius: 22,
-                    background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.28) 0%, rgba(47, 133, 90, 0.48) 100%)',
-                    color: '#0f1411',
-                  }}
-                >
-                  {weather?.condition === 'Sunny' || weather?.condition === 'Clear' ? <WbSunny fontSize="large" /> : <Cloud fontSize="large" />}
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {weather?.temperature ?? 22}°C
-                  </Typography>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    {weatherDescription}
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Chip icon={<LocationOn />} label={locationLabel} size="small" sx={{ borderRadius: '999px' }} />
-                    <Chip icon={<Thermostat />} label={`${weather?.temperature ?? 22}°C`} size="small" sx={{ borderRadius: '999px' }} />
-                    {humidityLabel && (
-                      <Chip icon={<Water />} label={humidityLabel} size="small" sx={{ borderRadius: '999px' }} />
-                    )}
-                  </Stack>
-                </Box>
-              </Stack>
+              <>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar
+                    sx={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 2.5,
+                      background: 'linear-gradient(135deg, rgba(125,223,146,0.3) 0%, rgba(47,133,90,0.5) 100%)',
+                      color: '#fff',
+                    }}
+                  >
+                    {weather?.condition === 'Sunny' || weather?.condition === 'Clear' ? <WbSunny /> : <Cloud />}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>
+                      {weather?.temperature ?? 22}°C
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
+                      {weatherDescription}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    icon={<LocationOn sx={{ fontSize: 14 }} />}
+                    label={locationLabel}
+                    size="small"
+                    sx={{ borderRadius: '999px', fontSize: '0.7rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', '.MuiChip-icon': { color: '#7DDF92' } }}
+                  />
+                  <Chip
+                    icon={<Thermostat sx={{ fontSize: 14 }} />}
+                    label={`${weather?.temperature ?? 22}°C`}
+                    size="small"
+                    sx={{ borderRadius: '999px', fontSize: '0.7rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', '.MuiChip-icon': { color: '#7DDF92' } }}
+                  />
+                  {humidityLabel && (
+                    <Chip
+                      icon={<Water sx={{ fontSize: 14 }} />}
+                      label={humidityLabel}
+                      size="small"
+                      sx={{ borderRadius: '999px', fontSize: '0.7rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', '.MuiChip-icon': { color: '#7DDF92' } }}
+                    />
+                  )}
+                </Stack>
+              </>
             )}
           </Box>
         </Box>

@@ -2,59 +2,111 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError, ConfigurationError, OperationFailure
 from urllib.parse import quote_plus
 import os
+import logging
 from datetime import datetime
 
-# Single authoritative get_database implementation
-def get_database(db_name: str | None = None):
-    """Return a MongoDB database handle.
+logger = logging.getLogger(__name__)
 
-    Priority:
-      1. Use full MONGO_URI if provided (recommended for Atlas SRV connection)
-      2. Otherwise assemble from MONGO_USER / MONGO_PASS / MONGO_HOST / MONGO_PORT
+# ---------------------------------------------------------------------------
+# Cached client / database so we only connect once
+# ---------------------------------------------------------------------------
+_cached_client = None
+_cached_db = None
+_db_available = None  # None = not yet checked, True/False after check
 
-    Args:
-        db_name: Optional database name; defaults to env MONGO_DB or 'crop_intelligence'
-    Raises:
-        Exception with helpful message if authentication or connection fails.
-    """
-    # Resolve target DB name
-    target_db = db_name or os.environ.get('MONGO_DB', 'crop_intelligence')
 
-    # Prefer explicit URI (can be mongodb+srv or standard)
+def _build_mongo_uri(target_db: str) -> str:
+    """Build MongoDB URI from environment variables."""
     mongo_uri = os.environ.get('MONGO_URI')
-
     if not mongo_uri:
         user = os.environ.get('MONGO_USER')
         pwd = os.environ.get('MONGO_PASS')
         host = os.environ.get('MONGO_HOST', 'localhost')
         port = os.environ.get('MONGO_PORT', '27017')
-
         if user and pwd:
             mongo_uri = f"mongodb://{quote_plus(user)}:{quote_plus(pwd)}@{host}:{port}/{target_db}?authSource=admin"
         else:
             mongo_uri = f"mongodb://{host}:{port}/{target_db}"
+    return mongo_uri
+
+
+def _try_configure_dns():
+    """Try to configure dnspython to use Google/Cloudflare DNS instead of
+    the system default, which often fails for SRV records on home routers."""
+    try:
+        import dns.resolver
+        resolver = dns.resolver.Resolver()
+        # Prepend public DNS so SRV lookups for mongodb+srv work even when
+        # the local router DNS can't resolve them.
+        public_dns = ['8.8.8.8', '8.8.4.4', '1.1.1.1']
+        resolver.nameservers = public_dns + [
+            ns for ns in resolver.nameservers if ns not in public_dns
+        ]
+        dns.resolver.default_resolver = resolver
+        logger.info("Configured dnspython to use Google/Cloudflare DNS")
+    except Exception as e:
+        logger.debug(f"Could not configure dnspython resolver: {e}")
+
+
+# Run once at import time — lightweight, no network call
+_try_configure_dns()
+
+
+def get_database(db_name: str | None = None):
+    """Return a MongoDB database handle (lazy, cached, fault-tolerant).
+
+    Will NOT crash the application if MongoDB is unreachable.
+    Returns None if the connection cannot be established.
+    """
+    global _cached_client, _cached_db, _db_available
+
+    target_db = db_name or os.environ.get('MONGO_DB', 'crop_intelligence')
+
+    # Return cache if we already have a good connection
+    if _cached_db is not None and _db_available:
+        return _cached_db
+
+    mongo_uri = _build_mongo_uri(target_db)
 
     try:
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=8000)
-        # Ping to verify connectivity & auth
         client.admin.command('ping')
-        return client[target_db]
+        _cached_client = client
+        _cached_db = client[target_db]
+        _db_available = True
+        logger.info("✅ Connected to MongoDB successfully")
+        return _cached_db
     except OperationFailure as e:
-        # Common auth issues
-        print("❌ MongoDB authentication failed.")
-        print(f"   Error: {e}")
-        print("   Troubleshooting checklist:")
-        print("   1. Verify username & password (no leading/trailing spaces)")
-        print("   2. If using Atlas SRV URI, ensure it includes the correct username & password encoded")
-        print("   3. Ensure the user has access to database:", target_db)
-        print("   4. If IP access list is enabled on Atlas, add your current IP or 0.0.0.0/0 (temporary)")
-        raise
+        _db_available = False
+        logger.error("❌ MongoDB authentication failed: %s", e)
+        logger.error("   Check username/password, IP whitelist, and database permissions.")
+        return None
     except (ServerSelectionTimeoutError, ConfigurationError) as e:
-        print("❌ Cannot reach MongoDB cluster.")
-        print(f"   URI: {mongo_uri}")
-        print(f"   Error: {e}")
-        print("   Possible causes: network/firewall, DNS for SRV, or cluster paused")
-        raise
+        _db_available = False
+        logger.error("❌ Cannot reach MongoDB cluster: %s", e)
+        logger.error("   Possible causes: network/firewall, DNS for SRV, or cluster paused")
+        return None
+    except Exception as e:
+        _db_available = False
+        logger.error("❌ MongoDB connection error: %s", e)
+        return None
+
+
+def is_db_available() -> bool:
+    """Check if the database is reachable (attempts connection if not yet checked)."""
+    global _db_available
+    if _db_available is None:
+        get_database()
+    return bool(_db_available)
+
+
+def retry_connection():
+    """Force a reconnection attempt (e.g. after network recovery)."""
+    global _cached_client, _cached_db, _db_available
+    _cached_client = None
+    _cached_db = None
+    _db_available = None
+    return get_database()
 
 
 def init_database():
@@ -157,6 +209,10 @@ def init_database():
         db.forum_posts.insert_many(forum_posts)
 
 def get_collection(collection_name):
-    """Get a specific collection from the database"""
+    """Get a specific collection from the database.
+    Returns None if DB is not available."""
     db = get_database()
+    if db is None:
+        logger.warning(f"Database unavailable — cannot access collection '{collection_name}'")
+        return None
     return db[collection_name]

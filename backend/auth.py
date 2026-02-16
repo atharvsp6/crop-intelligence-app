@@ -7,10 +7,28 @@ from database import get_collection
 
 class UserManager:
     def __init__(self):
-        self.users_collection = get_collection('users')
-        self.sessions_collection = get_collection('user_sessions')
+        self._users_collection = None
+        self._sessions_collection = None
         self.jwt_secret = os.environ.get('JWT_SECRET_KEY', 'fallback_secret_key_change_in_production')
         self.jwt_expiry_hours = int(os.environ.get('JWT_EXPIRY_HOURS', 24))
+        # Try initial connection but don't crash if it fails
+        try:
+            self._users_collection = get_collection('users')
+            self._sessions_collection = get_collection('user_sessions')
+        except Exception as e:
+            print(f"⚠️ UserManager: DB not available at init, will retry lazily: {e}")
+
+    @property
+    def users_collection(self):
+        if self._users_collection is None:
+            self._users_collection = get_collection('users')
+        return self._users_collection
+
+    @property
+    def sessions_collection(self):
+        if self._sessions_collection is None:
+            self._sessions_collection = get_collection('user_sessions')
+        return self._sessions_collection
     
     def hash_password(self, password):
         """Hash password using bcrypt"""
@@ -503,5 +521,9 @@ class UserManager:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-# Initialize user manager instance
-user_manager = UserManager()
+# Initialize user manager instance (lazy — won't crash if DB is down)
+try:
+    user_manager = UserManager()
+except Exception as e:
+    print(f"⚠️ user_manager initialization deferred: {e}")
+    user_manager = None

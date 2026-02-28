@@ -9,7 +9,6 @@ import {
   AppBar,
   Toolbar,
   useTheme,
-  Avatar,
   Chip,
 } from '@mui/material';
 import {
@@ -23,8 +22,6 @@ import {
   Language,
   ArrowForward,
   AutoAwesome,
-  Speed,
-  Security,
   CloudDone,
 } from '@mui/icons-material';
 import { keyframes } from '@emotion/react';
@@ -34,10 +31,6 @@ import { useNavigate } from 'react-router-dom';
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(40px); }
   to   { opacity: 1; transform: translateY(0); }
-`;
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to   { opacity: 1; }
 `;
 const float = keyframes`
   0%, 100% { transform: translateY(0px) rotate(0deg); }
@@ -51,26 +44,10 @@ const pulse = keyframes`
   0%, 100% { box-shadow: 0 0 0 0 rgba(125, 228, 154, 0.4); }
   50%      { box-shadow: 0 0 0 20px rgba(125, 228, 154, 0); }
 `;
-const shimmer = keyframes`
-  0%   { background-position: -200% center; }
-  100% { background-position: 200% center; }
-`;
 const gradientShift = keyframes`
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
-`;
-const scaleIn = keyframes`
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1); }
-`;
-const slideInLeft = keyframes`
-  from { opacity: 0; transform: translateX(-60px); }
-  to   { opacity: 1; transform: translateX(0); }
-`;
-const slideInRight = keyframes`
-  from { opacity: 0; transform: translateX(60px); }
-  to   { opacity: 1; transform: translateX(0); }
 `;
 const orbMove1 = keyframes`
   0%   { transform: translate(0, 0) scale(1); }

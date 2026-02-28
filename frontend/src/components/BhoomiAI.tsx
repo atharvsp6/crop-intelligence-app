@@ -50,6 +50,7 @@ import {
   startRecording,
   stopAndTranscribe,
   isRecording as checkIsRecording,
+  getUserLocation,
 } from '../services/groqSpeech';
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -111,6 +112,16 @@ const BhoomiAI: React.FC = () => {
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const synthRef = useRef(window.speechSynthesis);
 
+  // Location state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  // Fetch geolocation on mount
+  useEffect(() => {
+    getUserLocation().then((loc) => {
+      if (loc) setUserLocation(loc);
+    });
+  }, []);
+
   // Auto-scroll to latest message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -160,7 +171,11 @@ const BhoomiAI: React.FC = () => {
       try {
         const res = await axios.post<BhoomiResponse>(
           `${API_BASE}/api/bhoomi/process`,
-          { message: text, input_type: inputType },
+          {
+            message: text,
+            input_type: inputType,
+            ...(userLocation ? { lat: userLocation.lat, lon: userLocation.lon } : {}),
+          },
           { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
         );
 
@@ -190,7 +205,7 @@ const BhoomiAI: React.FC = () => {
         setLoading(false);
       }
     },
-    [token, loading, addMessage, speak, navigate],
+    [token, loading, addMessage, speak, navigate, userLocation],
   );
 
   /* ── Voice ───────────────────────────────────────────────── */

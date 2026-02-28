@@ -19,7 +19,6 @@ import {
 } from '@mui/material';
 import { 
   LocalHospital, 
-  CloudUpload, 
   PhotoCamera,
   CheckCircle,
   Warning,

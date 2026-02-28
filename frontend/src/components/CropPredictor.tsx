@@ -32,7 +32,6 @@ import {
 import {
   Agriculture,
   TrendingUp,
-  Science,
   Refresh,
   InfoOutlined,
   CloudQueue,
@@ -990,6 +989,7 @@ const CropPredictor: React.FC = () => {
     });
   }, [i18n.language, prediction?.ai_recommendations_language, prediction?.success, requestPrediction]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const train = async () => {
     if (training) return;
     setTraining(true);

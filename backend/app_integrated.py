@@ -132,6 +132,8 @@ allowed_origin_set = {
         "https://crop-intelligence-app-production.up.railway.app",
         "https://crop-intelligence-app-az6b.onrender.com",
         "https://yieldwise.vercel.app",
+        "https://yieldwise.atharvpatil.me",
+        "https://www.yieldwise.atharvpatil.me",
         "https://crop-intelligence-api.azurewebsites.net",
     ]
     if origin

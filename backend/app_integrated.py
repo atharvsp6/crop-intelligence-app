@@ -230,6 +230,14 @@ def handle_preflight():
 
 jwt = JWTManager(app)
 
+# Register Bhoomi AI blueprint
+try:
+    from bhoomi_routes import bhoomi_bp
+    app.register_blueprint(bhoomi_bp)
+    print("[Bhoomi AI] Blueprint registered at /api/bhoomi")
+except Exception as _bhoomi_err:
+    print(f"[Bhoomi AI] Blueprint registration failed: {_bhoomi_err}")
+
 # Initialize services (lazy — app starts even if DB is down)
 try:
     user_manager = UserManager()
@@ -2690,102 +2698,26 @@ def groq_speech_to_text():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# --- 12. Voice Intent Classification (navigate to section) ---
+# --- 12. Voice Intent Classification (DEPRECATED – use /api/bhoomi/process) ---
 @app.route('/api/groq/voice-intent', methods=['POST'])
 def groq_voice_intent():
-    """Classify user's voice command into an app section/action."""
-    guard = _groq_guard()
-    if guard:
-        return guard
-    try:
-        from groq_services import _chat, FAST_MODEL
-        data = request.get_json(force=True)
-        transcript = data.get('text', '')
-        if not transcript.strip():
-            return jsonify({"success": False, "error": "Empty transcript"}), 400
-
-        system = (
-            "You are a voice command classifier for a farming intelligence app called YieldWise. "
-            "The app has these sections: "
-            "dashboard, crop-predictor, disease-detector, financial-dashboard, "
-            "market-intelligence, mandi-data, community-forum, chatbot, "
-            "multilingual-chatbot, smart-advisor, profile. "
-            "The smart-advisor has sub-tabs: crop-advice(0), disease-intel(1), market(2), finance(3), weather(4), forum-ai(5), voice(6). "
-            "Based on the user's spoken command, determine which section they want to go to and/or what action they want. "
-            "If the user is asking a general question (like current temperature, farming advice, crop info, etc.) "
-            "that does NOT map to a specific section navigation, set action to 'answer' and section to 'none'. "
-            "Return valid JSON: "
-            '{"section": "route-name or none", "sub_tab": null or number, "action": "navigate|ask|predict|detect|search|answer", '
-            '"extracted_query": "any specific question or data from the command", '
-            '"confidence": 0.0-1.0, "summary": "brief description of what user wants"}'
-        )
-
-        result = _chat(system, f"User said: {transcript}", model=FAST_MODEL,
-                       json_mode=True, max_tokens=300, temperature=0.2)
-
-        return jsonify({"success": True, "intent": result})
-    except Exception as e:
-        logger.error("Voice intent error: %s", e)
-        return jsonify({"success": False, "error": str(e)}), 500
+    """DEPRECATED: Use POST /api/bhoomi/process instead. Kept for backward compatibility."""
+    return jsonify({
+        "success": False,
+        "error": "This endpoint is deprecated. Use POST /api/bhoomi/process with {\"message\": \"...\", \"input_type\": \"voice\"} instead.",
+        "migration": "/api/bhoomi/process"
+    }), 410
 
 
-# --- 12b. Voice Answer – answer general questions via Groq ---
+# --- 12b. Voice Answer (DEPRECATED – use /api/bhoomi/process) ---
 @app.route('/api/groq/voice-answer', methods=['POST'])
 def groq_voice_answer():
-    """Answer a general question from voice command using Groq LLM with real-time weather & location."""
-    guard = _groq_guard()
-    if guard:
-        return guard
-    try:
-        from groq_services import _chat, FAST_MODEL
-        data = request.get_json(force=True)
-        question = data.get('question', '')
-        user_name = data.get('user_name', '')
-        lat = data.get('lat')
-        lon = data.get('lon')
-        if not question.strip():
-            return jsonify({"success": False, "error": "No question provided"}), 400
-
-        # Fetch real-time weather if location is available
-        weather_context = ""
-        if lat and lon:
-            try:
-                weather_data = weather_service.get_current_weather(float(lat), float(lon))
-                if weather_data.get('success'):
-                    curr = weather_data.get('current', {})
-                    loc = weather_data.get('location', {})
-                    weather_context = (
-                        f"\n\nCurrent weather data for {loc.get('name', 'user location')}:\n"
-                        f"- Temperature: {curr.get('temperature', 'N/A')}°C (Feels like {curr.get('feels_like', 'N/A')}°C)\n"
-                        f"- Humidity: {curr.get('humidity', 'N/A')}%\n"
-                        f"- Conditions: {curr.get('description', 'N/A')}\n"
-                        f"- Wind Speed: {curr.get('wind_speed', 'N/A')} m/s\n"
-                        f"- Visibility: {curr.get('visibility', 'N/A')} km\n"
-                    )
-                    sun = weather_data.get('sun', {})
-                    if sun:
-                        weather_context += f"- Sunrise: {sun.get('sunrise', 'N/A')}, Sunset: {sun.get('sunset', 'N/A')}\n"
-            except Exception as we:
-                logger.warning("Failed to fetch weather for voice-answer: %s", we)
-
-        name_greeting = f"The user's name is {user_name}. Address them by name. " if user_name else ""
-
-        system = (
-            f"You are a helpful agricultural AI assistant for Indian farmers (YieldWise app). "
-            f"{name_greeting}"
-            "Answer the user's question concisely and helpfully. "
-            "If weather data is provided below, USE it to give accurate, real-time weather information. "
-            "If it's about crops, farming, markets, or agriculture, give specific practical advice. "
-            "For other topics, answer briefly and helpfully. "
-            "Keep your answer under 150 words. Be direct and useful."
-            f"{weather_context}"
-        )
-
-        answer = _chat(system, question, model=FAST_MODEL, max_tokens=500, temperature=0.5)
-        return jsonify({"success": True, "answer": answer})
-    except Exception as e:
-        logger.error("Voice answer error: %s", e)
-        return jsonify({"success": False, "error": str(e)}), 500
+    """DEPRECATED: Use POST /api/bhoomi/process instead. Kept for backward compatibility."""
+    return jsonify({
+        "success": False,
+        "error": "This endpoint is deprecated. Use POST /api/bhoomi/process with {\"message\": \"...\", \"input_type\": \"voice\"} instead.",
+        "migration": "/api/bhoomi/process"
+    }), 410
 
 
 # --- General quick advice ---
@@ -2816,8 +2748,10 @@ def groq_status():
             "crop-recommendation", "disease-treatment", "pest-identify",
             "market-prediction", "financial-plan", "weather-alerts",
             "forum-answer", "moderate-post", "voice-advisory", "quick-advice",
-            "speech-to-text", "voice-intent",
-        ]
+            "speech-to-text",
+        ],
+        "deprecated": ["voice-intent", "voice-answer"],
+        "replacement": "POST /api/bhoomi/process"
     })
 
 

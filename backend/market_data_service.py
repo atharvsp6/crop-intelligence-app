@@ -398,14 +398,23 @@ class MarketDataService:
         """Cache an error to prevent repeated failed calls"""
         self.error_cache[cache_key] = (time.time(), error_msg)
 
+    def _get_api_keys(self):
+        """Collect all available government API keys, filtering out placeholders."""
+        keys = []
+        for env_var in ('DATA_GOV_IN_API_KEY', 'GOVT_OPEN_DATA_KEY'):
+            val = os.getenv(env_var, '').strip()
+            if val and val not in ('your_data_gov_in_api_key_here', 'demo'):
+                keys.append(val)
+        return keys
+
     def _fetch_mandi_records(self, commodity=None, state=None, district=None, limit=50, offset=0):
         """Query the Indian government mandi API and return processed records."""
         try:
-            api_key = os.getenv('GOVT_OPEN_DATA_KEY') or os.getenv('DATA_GOV_IN_API_KEY')
-            if not api_key or api_key.strip() in ('', 'your_data_gov_in_api_key_here', 'demo'):
+            api_keys = self._get_api_keys()
+            if not api_keys:
                 return {
                     'success': False,
-                    'error': 'Government Open Data API key missing. Set GOVT_OPEN_DATA_KEY or DATA_GOV_IN_API_KEY.',
+                    'error': 'Government Open Data API key missing. Set DATA_GOV_IN_API_KEY or GOVT_OPEN_DATA_KEY.',
                     'records': []
                 }
 
@@ -423,8 +432,7 @@ class MarketDataService:
             safe_limit = max(1, min(int(limit or 50), 100))
             safe_offset = max(0, int(offset or 0))
 
-            params = {
-                'api-key': api_key,
+            base_params = {
                 'format': 'json',
                 'limit': safe_limit,
                 'offset': safe_offset
@@ -432,38 +440,55 @@ class MarketDataService:
 
             if commodity:
                 mapped = self.govt_commodity_mapping.get(commodity.lower(), commodity)
-                params['filters[commodity]'] = mapped
+                base_params['filters[commodity]'] = mapped
 
             if state:
-                params['filters[state]'] = state
+                base_params['filters[state]'] = state
 
             if district:
-                params['filters[district]'] = district
+                base_params['filters[district]'] = district
 
-            # Use session with retry logic and increased timeout
-            response = self.session.get(
-                "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
-                params=params,
-                timeout=30
-            )
+            # Try each available API key until one succeeds
+            last_error = None
+            for api_key in api_keys:
+                params = {**base_params, 'api-key': api_key}
 
-            meta = {
-                'source': 'data_gov_in',
-                'endpoint_used': 'resource',
-                'api_url': response.url,
-                'commodity': params.get('filters[commodity]', 'ALL'),
-                'state': params.get('filters[state]'),
-                'district': params.get('filters[district]'),
-                'limit_requested': safe_limit,
-                'offset_requested': safe_offset
-            }
+                # Use session with retry logic and increased timeout
+                response = self.session.get(
+                    "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070",
+                    params=params,
+                    timeout=30
+                )
 
-            if response.status_code != 200:
+                meta = {
+                    'source': 'data_gov_in',
+                    'endpoint_used': 'resource',
+                    'api_url': response.url,
+                    'commodity': params.get('filters[commodity]', 'ALL'),
+                    'state': params.get('filters[state]'),
+                    'district': params.get('filters[district]'),
+                    'limit_requested': safe_limit,
+                    'offset_requested': safe_offset
+                }
+
+                if response.status_code == 403:
+                    self.logger.warning("API key rejected (403). Trying next key if available.")
+                    last_error = 'Government API key not authorised'
+                    continue
+
+                if response.status_code != 200:
+                    last_error = f'Government API responded with {response.status_code}'
+                    continue
+
+                # Key worked — break out of the loop and continue processing
+                break
+            else:
+                # All keys exhausted without a successful response
                 return {
                     'success': False,
-                    'error': f'Government API responded with {response.status_code}',
+                    'error': last_error or 'All API keys failed',
                     'records': [],
-                    'meta': meta
+                    'meta': meta if 'meta' in dir() else {}
                 }
 
             payload = response.json()

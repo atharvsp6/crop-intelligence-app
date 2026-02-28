@@ -46,11 +46,55 @@ MAX_TOKENS = 1024
 # Helper – call Groq chat completions
 # ---------------------------------------------------------------------------
 
+def _gemini_fallback(system_prompt: str, user_prompt: str, *,
+                     max_tokens: int = MAX_TOKENS, temperature: float = 0.7,
+                     json_mode: bool = False):
+    """Fallback to Google Gemini when Groq returns 403 (geo-blocked)."""
+    try:
+        import google.generativeai as genai
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return None
+        genai.configure(api_key=api_key)
+        model_name = os.environ.get("MULTILINGUAL_GEMINI_MODEL") or "gemini-2.0-flash-exp"
+        model = genai.GenerativeModel(model_name)
+
+        combined_prompt = f"{system_prompt}\n\nUser: {user_prompt}"
+        if json_mode:
+            combined_prompt += "\n\nIMPORTANT: Respond ONLY with valid JSON, no markdown fences."
+
+        gen_config = {"max_output_tokens": max_tokens, "temperature": temperature}
+        if json_mode:
+            gen_config["response_mime_type"] = "application/json"
+
+        resp = model.generate_content(combined_prompt, generation_config=gen_config)
+        text = resp.text.strip()
+
+        if json_mode:
+            # Strip markdown fences if present
+            if text.startswith("```"):
+                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                return {"raw": text}
+        return text
+    except Exception as fallback_exc:
+        logger.error("Gemini fallback also failed: %s", fallback_exc)
+        return None
+
+
 def _chat(system_prompt: str, user_prompt: str, *, model: str | None = None,
           max_tokens: int = MAX_TOKENS, temperature: float = 0.7, json_mode: bool = False):
-    """Low-level wrapper around Groq chat completions."""
+    """Low-level wrapper around Groq chat completions with Gemini fallback."""
     client = _get_client()
     if client is None:
+        # No Groq client — try Gemini directly
+        fallback = _gemini_fallback(system_prompt, user_prompt,
+                                    max_tokens=max_tokens, temperature=temperature,
+                                    json_mode=json_mode)
+        if fallback is not None:
+            return fallback
         return {"error": "Groq API not configured. Set GROQ_API_KEY."}
 
     kwargs = dict(
@@ -75,8 +119,19 @@ def _chat(system_prompt: str, user_prompt: str, *, model: str | None = None,
                 return {"raw": text}
         return text
     except Exception as exc:
+        exc_str = str(exc)
         logger.error("Groq API error: %s", exc)
-        return {"error": str(exc)}
+
+        # If Groq returns 403 (geo-blocked), fall back to Gemini
+        if "403" in exc_str or "Forbidden" in exc_str:
+            logger.info("Groq returned 403 — falling back to Gemini")
+            fallback = _gemini_fallback(system_prompt, user_prompt,
+                                        max_tokens=max_tokens, temperature=temperature,
+                                        json_mode=json_mode)
+            if fallback is not None:
+                return fallback
+
+        return {"error": exc_str}
 
 
 # =====================================================================

@@ -17,6 +17,8 @@ import {
   ListItemButton,
   ListItemText,
   Divider,
+  useTheme,
+  alpha,
 } from '@mui/material';
 import {
   Send,
@@ -51,10 +53,13 @@ interface ChatResponse {
 
 const Chatbot: React.FC = () => {
   const { user } = useAuth();
+  const theme = useTheme();
+  const dark = theme.palette.mode === 'dark';
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: `Hello${user?.name ? ` ${user.name}` : ''}! I'm your AI farming assistant. I can help you with crop recommendations, disease identification, market advice, and weather planning. What would you like to know?`,
+      text: `Hello${user?.name ? ` ${user.name}` : ''}! I'm your farming assistant. I can help you with crop recommendations, disease identification, market advice, and weather planning. What would you like to know?`,
       isUser: false,
       timestamp: new Date(),
     }
@@ -65,7 +70,6 @@ const Chatbot: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{lat: number; lon: number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get user location once on mount
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -167,7 +171,7 @@ const Chatbot: React.FC = () => {
   };
 
   const sendQuickMessage = (message: string) => {
-    setActiveTab(0); // Switch to chat tab
+    setActiveTab(0);
     sendMessage(message);
   };
 
@@ -192,14 +196,13 @@ const Chatbot: React.FC = () => {
         return;
     }
 
-    // Switch to chat tab and send the message
     setActiveTab(0);
     await sendMessage(message, context);
   };
 
   const clearChat = async () => {
     try {
-  await axios.post(`${API_BASE}/api/chatbot/clear-history`);
+      await axios.post(`${API_BASE}/api/chatbot/clear-history`);
     } catch (error) {
       console.log('Could not clear server-side chat history');
     }
@@ -221,26 +224,58 @@ const Chatbot: React.FC = () => {
     });
   };
 
+  const accentColor = dark ? theme.palette.primary.main : theme.palette.primary.dark;
+
   return (
-    <Box sx={{ flexGrow: 1, p: 3, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h4" gutterBottom sx={{ color: '#ffffff', fontWeight: 'bold' }}>
-        <SmartToy sx={{ mr: 2, verticalAlign: 'bottom' }} />
-        AI Farming Assistant
-      </Typography>
-      <Typography variant="body1" sx={{ color: '#e0e0e0', opacity: 0.9 }} paragraph>
-        Get instant advice on crops, diseases, weather, and market trends
-      </Typography>
+    <Box sx={{ flexGrow: 1, p: { xs: 2, md: 3 }, height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+      {/* Page Header */}
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 2.5,
+              background: `linear-gradient(135deg, ${alpha(accentColor, 0.15)} 0%, ${alpha(accentColor, 0.08)} 100%)`,
+              border: `1px solid ${alpha(accentColor, 0.2)}`,
+              display: 'grid',
+              placeItems: 'center',
+              color: 'primary.main',
+            }}
+          >
+            <SmartToy />
+          </Box>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+              Farming Assistant
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Get instant advice on crops, diseases, weather, and market trends
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
 
       <Card sx={{ 
         flexGrow: 1, 
         display: 'flex', 
         flexDirection: 'column', 
         overflow: 'hidden',
-        backgroundColor: '#ffffff',
-        boxShadow: 3,
+        borderRadius: 3,
+        border: `1px solid ${alpha(accentColor, dark ? 0.15 : 0.1)}`,
       }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          <Tabs
+            value={activeTab}
+            onChange={(_, newValue) => setActiveTab(newValue)}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+              },
+            }}
+          >
             <Tab label="Chat" />
             <Tab label="Quick Actions" />
             <Tab label="Sample Questions" />
@@ -262,30 +297,44 @@ const Chatbot: React.FC = () => {
                     }}
                   >
                     {!message.isUser && (
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        <SmartToy />
+                      <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                        <SmartToy sx={{ fontSize: 20 }} />
                       </Avatar>
                     )}
                     
                     <Paper
+                      elevation={0}
                       sx={{
                         p: 2,
                         maxWidth: '70%',
-                        bgcolor: message.isUser ? 'primary.main' : '#f5f5f5',
-                        color: message.isUser ? 'white' : '#333333',
-                        border: message.isUser ? 'none' : '1px solid #e0e0e0',
+                        borderRadius: 2.5,
+                        ...(message.isUser
+                          ? {
+                              bgcolor: 'primary.main',
+                              color: 'primary.contrastText',
+                              borderBottomRightRadius: 4,
+                            }
+                          : {
+                              bgcolor: dark
+                                ? alpha(theme.palette.background.paper, 0.6)
+                                : alpha(theme.palette.action.hover, 0.5),
+                              color: 'text.primary',
+                              border: `1px solid ${theme.palette.divider}`,
+                              borderBottomLeftRadius: 4,
+                            }),
                       }}
                     >
-                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                         {message.text}
                       </Typography>
                       <Typography
                         variant="caption"
                         sx={{
                           display: 'block',
-                          mt: 1,
-                          opacity: 0.7,
+                          mt: 0.8,
+                          opacity: 0.6,
                           textAlign: 'right',
+                          fontSize: '0.7rem',
                         }}
                       >
                         {formatTimestamp(message.timestamp)}
@@ -295,9 +344,9 @@ const Chatbot: React.FC = () => {
                     {message.isUser && (
                       <Avatar
                         src={user?.profile_photo || undefined}
-                        sx={{ bgcolor: 'secondary.main' }}
+                        sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}
                       >
-                        {!user?.profile_photo && <Person />}
+                        {!user?.profile_photo && <Person sx={{ fontSize: 20 }} />}
                       </Avatar>
                     )}
                   </Box>
@@ -306,17 +355,25 @@ const Chatbot: React.FC = () => {
               
               {loading && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    <SmartToy />
+                  <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                    <SmartToy sx={{ fontSize: 20 }} />
                   </Avatar>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: '#f5f5f5',
-                    color: '#333333',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <CircularProgress size={20} />
-                    <Typography variant="body2" sx={{ ml: 1, display: 'inline' }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2.5,
+                      bgcolor: dark
+                        ? alpha(theme.palette.background.paper, 0.6)
+                        : alpha(theme.palette.action.hover, 0.5),
+                      border: `1px solid ${theme.palette.divider}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                    }}
+                  >
+                    <CircularProgress size={18} />
+                    <Typography variant="body2" color="text.secondary">
                       Thinking...
                     </Typography>
                   </Paper>
@@ -326,7 +383,7 @@ const Chatbot: React.FC = () => {
             </Box>
 
             {/* Input Area */}
-            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+            <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                 <TextField
                   fullWidth
@@ -335,32 +392,17 @@ const Chatbot: React.FC = () => {
                   placeholder="Ask me anything about farming..."
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       sendMessage(inputMessage);
                     }
                   }}
                   disabled={loading}
+                  size="small"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      backgroundColor: '#ffffff',
-                      '& fieldset': {
-                        borderColor: '#e0e0e0',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#b0b0b0',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: 'primary.main',
-                      },
-                    },
-                    '& .MuiInputBase-input': {
-                      color: '#333333',
-                    },
-                    '& .MuiInputBase-input::placeholder': {
-                      color: '#888888',
-                      opacity: 1,
+                      borderRadius: 2.5,
                     },
                   }}
                 />
@@ -368,21 +410,20 @@ const Chatbot: React.FC = () => {
                   variant="contained"
                   onClick={() => sendMessage(inputMessage)}
                   disabled={!inputMessage.trim() || loading}
-                  sx={{ minWidth: 'auto', px: 2 }}
+                  sx={{ minWidth: 'auto', px: 2, borderRadius: 2.5, height: 40 }}
                 >
-                  <Send />
+                  <Send sx={{ fontSize: 20 }} />
                 </Button>
                 <GroqMicButton
                   onTranscript={(text) => {
                     setInputMessage(text);
-                    // Auto-send after transcription
                     setTimeout(() => sendMessage(text), 300);
                   }}
                   onError={(err) => console.error('Mic error:', err)}
                   size="medium"
                 />
-                <IconButton onClick={clearChat} color="secondary">
-                  <Clear />
+                <IconButton onClick={clearChat} color="secondary" sx={{ width: 40, height: 40 }}>
+                  <Clear sx={{ fontSize: 20 }} />
                 </IconButton>
               </Box>
             </Box>
@@ -390,52 +431,46 @@ const Chatbot: React.FC = () => {
         )}
 
         {activeTab === 1 && (
-          <CardContent>
-            <Typography variant="h6" gutterBottom sx={{ 
-              color: '#333333',
-              fontWeight: 'bold',
-            }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
               Quick Actions
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2 }}>
               {quickActions.map((action, index) => (
                 <Card
                   key={index}
+                  elevation={0}
                   sx={{
                     cursor: 'pointer',
-                    '&:hover': { 
-                      boxShadow: 4,
-                      backgroundColor: '#f0f0f0',
+                    transition: 'all 0.2s ease',
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2.5,
+                    '&:hover': {
+                      borderColor: alpha(accentColor, 0.4),
+                      backgroundColor: alpha(accentColor, 0.04),
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 8px 24px ${alpha(accentColor, 0.1)}`,
                     },
-                    transition: 'all 0.3s',
-                    backgroundColor: '#fafafa',
-                    border: '2px solid #e0e0e0',
                   }}
                   onClick={action.action}
                 >
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Box sx={{ 
-                      color: 'primary.main', 
-                      mb: 1,
-                      fontSize: '2rem',
+                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                    <Box sx={{
+                      color: 'primary.main',
+                      mb: 1.5,
+                      '& svg': { fontSize: 32 },
                     }}>
                       {action.icon}
                     </Box>
-                    <Typography variant="body2" sx={{ 
-                      color: '#333333',
-                      fontWeight: '600',
-                    }}>{action.label}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {action.label}
+                    </Typography>
                   </CardContent>
                 </Card>
               ))}
             </Box>
 
-            <Typography variant="h6" sx={{ 
-              mt: 4, 
-              mb: 2,
-              color: '#333333',
-              fontWeight: 'bold',
-            }}>
+            <Typography variant="subtitle1" sx={{ mt: 4, mb: 2, fontWeight: 600 }}>
               Specialized Queries
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -448,13 +483,10 @@ const Chatbot: React.FC = () => {
                   season: 'spring'
                 })}
                 sx={{
-                  backgroundColor: '#f9f9f9',
-                  color: '#333333',
-                  borderColor: '#cccccc',
-                  '&:hover': {
-                    backgroundColor: '#f0f0f0',
-                    borderColor: '#999999',
-                  }
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  justifyContent: 'flex-start',
+                  py: 1.2,
                 }}
               >
                 Get Wheat Growing Recommendations
@@ -468,13 +500,10 @@ const Chatbot: React.FC = () => {
                   symptoms: 'yellowing leaves, wilting'
                 })}
                 sx={{
-                  backgroundColor: '#f9f9f9',
-                  color: '#333333',
-                  borderColor: '#cccccc',
-                  '&:hover': {
-                    backgroundColor: '#f0f0f0',
-                    borderColor: '#999999',
-                  }
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  justifyContent: 'flex-start',
+                  py: 1.2,
                 }}
               >
                 Analyze Plant Problem
@@ -487,13 +516,10 @@ const Chatbot: React.FC = () => {
                   crops: ['corn', 'wheat']
                 })}
                 sx={{
-                  backgroundColor: '#f9f9f9',
-                  color: '#333333',
-                  borderColor: '#cccccc',
-                  '&:hover': {
-                    backgroundColor: '#f0f0f0',
-                    borderColor: '#999999',
-                  }
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  justifyContent: 'flex-start',
+                  py: 1.2,
                 }}
               >
                 Get Weather-Based Advice
@@ -503,21 +529,21 @@ const Chatbot: React.FC = () => {
         )}
 
         {activeTab === 2 && (
-          <CardContent>
-            <Typography variant="h6" gutterBottom sx={{ 
-              color: '#333333',
-              fontWeight: 'bold',
-            }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
               Sample Questions
             </Typography>
-            <Typography variant="body2" sx={{ color: '#666666' }} paragraph>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Click on any question to ask it directly
             </Typography>
-            <List sx={{ 
-              backgroundColor: '#ffffff', 
-              border: '1px solid #e0e0e0',
-              borderRadius: 1,
-            }}>
+            <List
+              disablePadding
+              sx={{
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: 2.5,
+                overflow: 'hidden',
+              }}
+            >
               {sampleQuestions.map((question, index) => (
                 <React.Fragment key={index}>
                   <ListItem disablePadding>
@@ -529,21 +555,20 @@ const Chatbot: React.FC = () => {
                       sx={{
                         py: 1.5,
                         '&:hover': {
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: alpha(accentColor, 0.06),
                         },
                       }}
                     >
                       <ListItemText
                         primary={question}
-                        primaryTypographyProps={{ 
+                        primaryTypographyProps={{
                           variant: 'body2',
-                          color: '#333333',
-                          fontWeight: '500',
+                          fontWeight: 500,
                         }}
                       />
                     </ListItemButton>
                   </ListItem>
-                  {index < sampleQuestions.length - 1 && <Divider sx={{ borderColor: '#e0e0e0' }} />}
+                  {index < sampleQuestions.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>

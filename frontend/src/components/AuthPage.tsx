@@ -6,15 +6,13 @@ import {
   Typography,
   TextField,
   Button,
-  Paper,
   Alert,
   CircularProgress,
-  Tabs,
-  Tab,
   Stack,
   InputAdornment,
   IconButton,
   Divider,
+  Fade,
 } from '@mui/material';
 import {
   Visibility,
@@ -22,141 +20,181 @@ import {
   Email,
   Person,
   Lock,
+  ArrowForward,
+  Agriculture,
+  TrendingUp,
+  LocalHospital,
 } from '@mui/icons-material';
+import { keyframes } from '@emotion/react';
 import axios from 'axios';
 import { API_BASE } from '../config';
 import { AuthContext } from '../context/AuthContext';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+/* ── Keyframe Animations ── */
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+const float = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-12px); }
+`;
+const orbDrift1 = keyframes`
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(40px, -60px) scale(1.15); }
+  66%  { transform: translate(-30px, 30px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+`;
+const orbDrift2 = keyframes`
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(-50px, 40px) scale(0.85); }
+  66%  { transform: translate(40px, -20px) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
+`;
+const shimmerLine = keyframes`
+  0%   { left: -30%; }
+  100% { left: 130%; }
+`;
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+/* ── Shared Input Styles ── */
+const textFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    backdropFilter: 'blur(8px)',
+    transition: 'all 0.3s ease',
+    '& fieldset': {
+      borderColor: 'rgba(125, 228, 154, 0.15)',
+      transition: 'all 0.3s ease',
+    },
+    '&:hover fieldset': {
+      borderColor: 'rgba(125, 228, 154, 0.35)',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: '#4fd191',
+      borderWidth: 2,
+    },
+    '&.Mui-focused': {
+      backgroundColor: 'rgba(125, 228, 154, 0.04)',
+    },
+    '& .MuiOutlinedInput-input': {
+      color: '#e8f5e9',
+      '&::placeholder': { color: 'rgba(255,255,255,0.4)' },
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'rgba(255,255,255,0.55)',
+    '&.Mui-focused': { color: '#7ddf92' },
+    '&.MuiFormLabel-filled': { color: '#7ddf92' },
+  },
+};
 
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`auth-tabpanel-${index}`}
-      aria-labelledby={`auth-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
+/* ── Google SVG Icon ── */
+const GoogleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+  </svg>
+);
+
+/* ── Submit Button Styles ── */
+const submitBtnSx = {
+  borderRadius: 3,
+  height: 54,
+  fontSize: '1.05rem',
+  fontWeight: 700,
+  textTransform: 'none' as const,
+  background: 'linear-gradient(135deg, #4fd191 0%, #2f855a 100%)',
+  boxShadow: '0 8px 28px rgba(47,133,90,0.35)',
+  position: 'relative' as const,
+  overflow: 'hidden' as const,
+  transition: 'all 0.3s cubic-bezier(.22,1,.36,1)',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    width: '30%',
+    height: '100%',
+    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+    animation: `${shimmerLine} 3s ease-in-out infinite`,
+  },
+  '&:hover': {
+    background: 'linear-gradient(135deg, #5ee0a0 0%, #38a169 100%)',
+    boxShadow: '0 12px 36px rgba(47,133,90,0.45)',
+    transform: 'translateY(-2px)',
+  },
+  '&:disabled': {
+    background: 'rgba(47,133,90,0.5)',
+    boxShadow: 'none',
+  },
+};
+
+/* ── Google Button Styles ── */
+const googleBtnSx = {
+  borderRadius: 3,
+  height: 54,
+  fontSize: '0.95rem',
+  fontWeight: 600,
+  textTransform: 'none' as const,
+  backgroundColor: 'rgba(255,255,255,0.06)',
+  color: '#e0e0e0',
+  border: '1px solid rgba(255,255,255,0.12)',
+  backdropFilter: 'blur(8px)',
+  transition: 'all 0.3s ease',
+  display: 'flex',
+  gap: 1.5,
+  justifyContent: 'center',
+  alignItems: 'center',
+  '&:hover': {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.25)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+  },
+  '&:disabled': {
+    borderColor: 'rgba(255,255,255,0.06)',
+    color: 'rgba(255,255,255,0.3)',
+  },
+};
 
 const AuthPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Login form state
-  const [loginForm, setLoginForm] = useState({
-    email: '',
-    password: '',
-  });
-
-  // Register form state
-  const [registerForm, setRegisterForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
 
   const authContext = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Get the intended destination, or default to dashboard
   const from = location.state?.from?.pathname || '/dashboard';
 
-  const textFieldSx = {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: 3,
-      backgroundColor: '#fafafa',
-      '& fieldset': {
-        borderColor: 'rgba(47, 133, 90, 0.2)',
-      },
-      '&:hover fieldset': {
-        borderColor: 'rgba(47, 133, 90, 0.4)',
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: '#2f855a',
-        borderWidth: 2,
-      },
-      '& .MuiOutlinedInput-input': {
-        color: '#333333',
-      },
-    },
-    '& .MuiInputLabel-root': {
-      color: '#666666',
-      '&.Mui-focused': {
-        color: '#2f855a',
-      },
-      '&.MuiFormLabel-filled': {
-        color: '#2f855a',
-      },
-    },
-    '& .MuiFormHelperText-root': {
-      color: '#666666',
-    },
-  };
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-    setError('');
-    setSuccess('');
-  };
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
+  const switchTab = (tab: 'login' | 'register') => { setActiveTab(tab); setError(''); setSuccess(''); };
 
   const handleGoogleLoginSuccess = async (tokenResponse: any) => {
     setLoading(true);
     setError('');
-
     try {
-      // useGoogleLogin with implicit flow returns access_token, not credential
-      const response = await axios.post(`${API_BASE}/api/auth/google-login`, {
-        accessToken: tokenResponse.access_token,
-      });
-
+      const response = await axios.post(`${API_BASE}/api/auth/google-login`, { accessToken: tokenResponse.access_token });
       if (response.data.success) {
         const { token, user } = response.data;
         localStorage.setItem('token', token);
         authContext?.login(user, token);
         setSuccess('Google login successful! Redirecting...');
-        
-        // Redirect after a short delay to show success message
-        setTimeout(() => {
-          navigate(from, { replace: true });
-        }, 1500);
+        setTimeout(() => navigate(from, { replace: true }), 1500);
       }
     } catch (error: any) {
-      console.error('Google login error:', error);
       setError(error.response?.data?.message || error.response?.data?.error || 'Google login failed');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const googleLogin = useGoogleLogin({
     onSuccess: handleGoogleLoginSuccess,
-    onError: () => {
-      setError('Google login failed. Please try again.');
-    },
+    onError: () => setError('Google login failed. Please try again.'),
     flow: 'implicit',
   });
 
@@ -164,452 +202,431 @@ const AuthPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const response = await axios.post(`${API_BASE}/api/auth/login`, {
-        email: loginForm.email,
-        password: loginForm.password,
-      });
-
+      const response = await axios.post(`${API_BASE}/api/auth/login`, { email: loginForm.email, password: loginForm.password });
       if (response.data.success) {
         const { token, user } = response.data;
         localStorage.setItem('token', token);
         authContext?.login(user, token);
         setSuccess('Login successful! Redirecting...');
-        
-        // Redirect after a short delay to show success message
-        setTimeout(() => {
-          navigate(from, { replace: true });
-        }, 1500);
+        setTimeout(() => navigate(from, { replace: true }), 1500);
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (registerForm.password !== registerForm.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (registerForm.password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
+    if (registerForm.password !== registerForm.confirmPassword) { setError('Passwords do not match'); return; }
+    if (registerForm.password.length < 6) { setError('Password must be at least 6 characters long'); return; }
     setLoading(true);
-
     try {
-  const response = await axios.post(`${API_BASE}/api/auth/register`, {
-        username: registerForm.name,
-        email: registerForm.email,
-        password: registerForm.password,
-        full_name: registerForm.name,
+      const response = await axios.post(`${API_BASE}/api/auth/register`, {
+        username: registerForm.name, email: registerForm.email, password: registerForm.password, full_name: registerForm.name,
       });
-
       if (response.data.success) {
         setSuccess('Registration successful! Please log in.');
-        setActiveTab(0);
+        switchTab('login');
         setRegisterForm({ name: '', email: '', password: '', confirmPassword: '' });
       }
     } catch (error: any) {
-      console.log('Registration error:', error);
-      console.log('Error response:', error.response);
       setError(error.response?.data?.message || error.response?.data?.error || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
+
+  /* ── Feature pills for left panel ── */
+  const highlights = [
+    { icon: <Agriculture sx={{ fontSize: 20 }} />, text: '99.55% Yield Prediction Accuracy' },
+    { icon: <LocalHospital sx={{ fontSize: 20 }} />, text: 'Instant AI Disease Diagnosis' },
+    { icon: <TrendingUp sx={{ fontSize: 20 }} />, text: 'Live Market Intelligence' },
+  ];
 
   return (
     <Box
       sx={{
         minHeight: '100vh',
         width: '100vw',
-        background: 'linear-gradient(135deg, #0f1411 0%, #1a2420 50%, #2f855a 100%)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: { xs: 1, sm: 2 },
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        inset: 0,
+        background: '#080d0a',
       }}
     >
-      <Paper
-        elevation={20}
+      {/* ═══════ LEFT — Branding Panel (hidden on mobile) ═══════ */}
+      <Box
         sx={{
-          width: '100%',
-          maxWidth: 480,
-          borderRadius: 4,
-          background: 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
+          display: { xs: 'none', md: 'flex' },
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          width: '50%',
+          position: 'relative',
           overflow: 'hidden',
-          margin: 'auto',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(125, 228, 154, 0.1)',
+          background: 'linear-gradient(160deg, #0a120e 0%, #0f1a14 40%, #132a1e 100%)',
+          px: { md: 6, lg: 10 },
         }}
       >
-        {/* Header */}
-        <Box
-          sx={{
-            background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
-            color: 'white',
-            padding: 4,
-            textAlign: 'center',
-            position: 'relative',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'radial-gradient(circle at 30% 30%, rgba(125, 228, 154, 0.15) 0%, transparent 50%)',
-            }
-          }}
-        >
-          <Box sx={{ position: 'relative', zIndex: 1 }}>
-            <Box 
-              sx={{ 
-                fontSize: '3rem', 
-                mb: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 1,
-              }}
-            >
+        {/* Animated orbs */}
+        <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+          <Box sx={{
+            position: 'absolute', width: 400, height: 400, borderRadius: '50%', top: '-8%', right: '-10%',
+            background: 'radial-gradient(circle, rgba(125,228,154,0.07) 0%, transparent 70%)',
+            animation: `${orbDrift1} 22s ease-in-out infinite`,
+          }} />
+          <Box sx={{
+            position: 'absolute', width: 350, height: 350, borderRadius: '50%', bottom: '5%', left: '-8%',
+            background: 'radial-gradient(circle, rgba(80,180,120,0.05) 0%, transparent 70%)',
+            animation: `${orbDrift2} 26s ease-in-out infinite`,
+          }} />
+          {/* Grid */}
+          <Box sx={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'linear-gradient(rgba(125,228,154,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(125,228,154,0.025) 1px, transparent 1px)',
+            backgroundSize: '50px 50px',
+          }} />
+        </Box>
+
+        <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 480 }}>
+          {/* Logo */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 5, animation: `${fadeInUp} 0.8s cubic-bezier(.22,1,.36,1) both` }}>
+            <Box sx={{
+              width: 44, height: 44, borderRadius: 2.5,
+              background: 'linear-gradient(135deg, #4fd191, #2f855a)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem',
+            }}>
               🌾
             </Box>
-            <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1, fontSize: '2.2rem' }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.5rem', color: '#fff', letterSpacing: '-0.02em' }}>
               YieldWise
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: '1.1rem' }}>
-              Smart AI-Powered Farming for Better Yields
-            </Typography>
           </Box>
-        </Box>
 
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'rgba(47, 133, 90, 0.2)' }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="fullWidth"
+          <Typography
+            variant="h3"
             sx={{
-              '& .MuiTab-root': {
-                fontWeight: 600,
-                fontSize: '1rem',
-                color: '#666666',
-                '&.Mui-selected': {
-                  color: '#2f855a',
-                },
-              },
-              '& .MuiTabs-indicator': {
-                backgroundColor: '#2f855a',
-                height: 3,
-                borderRadius: '3px 3px 0 0',
-              }
+              fontWeight: 800,
+              lineHeight: 1.12,
+              mb: 3,
+              letterSpacing: '-0.03em',
+              fontSize: { md: '2.4rem', lg: '3rem' },
+              color: '#fff',
+              animation: `${fadeInUp} 0.8s cubic-bezier(.22,1,.36,1) 0.1s both`,
             }}
           >
-            <Tab label="SIGN IN" />
-            <Tab label="SIGN UP" />
-          </Tabs>
+            Smart Farming{' '}
+            <Box
+              component="span"
+              sx={{
+                background: 'linear-gradient(135deg, #a3f0bb, #4fd191)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Starts Here
+            </Box>
+          </Typography>
+          <Typography
+            sx={{
+              color: 'rgba(255,255,255,0.55)',
+              fontSize: '1.1rem',
+              lineHeight: 1.7,
+              mb: 5,
+              animation: `${fadeInUp} 0.8s cubic-bezier(.22,1,.36,1) 0.2s both`,
+            }}
+          >
+            Intelligent crop insights, disease detection, and market analysis — built for Indian farmers.
+          </Typography>
+
+          {/* Feature pills */}
+          <Stack spacing={2} sx={{ animation: `${fadeInUp} 0.8s cubic-bezier(.22,1,.36,1) 0.35s both` }}>
+            {highlights.map((h, i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 2,
+                  px: 2.5, py: 1.5, borderRadius: 3,
+                  background: 'rgba(125,228,154,0.05)',
+                  border: '1px solid rgba(125,228,154,0.1)',
+                  color: '#d4f5de',
+                  transition: 'all 0.3s ease',
+                  animation: `${float} ${5 + i}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.5}s`,
+                  '&:hover': {
+                    background: 'rgba(125,228,154,0.1)',
+                    transform: 'translateX(6px)',
+                    borderColor: 'rgba(125,228,154,0.25)',
+                  },
+                }}
+              >
+                <Box sx={{ color: '#7ddf92' }}>{h.icon}</Box>
+                <Typography sx={{ fontSize: '0.95rem', fontWeight: 500 }}>{h.text}</Typography>
+              </Box>
+            ))}
+          </Stack>
         </Box>
+      </Box>
 
-        {/* Alerts */}
-        {error && (
-          <Alert severity="error" sx={{ m: 2, mb: 0 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ m: 2, mb: 0 }} onClose={() => setSuccess('')}>
-            {success}
-          </Alert>
-        )}
+      {/* ═══════ RIGHT — Form Panel ═══════ */}
+      <Box
+        sx={{
+          width: { xs: '100%', md: '50%' },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'linear-gradient(160deg, #0c1410 0%, #101d16 50%, #0e1812 100%)',
+          px: { xs: 2, sm: 4 },
+        }}
+      >
+        {/* Subtle orb on right side */}
+        <Box sx={{
+          position: 'absolute', width: 300, height: 300, borderRadius: '50%', top: '10%', right: '-15%',
+          background: 'radial-gradient(circle, rgba(125,228,154,0.04) 0%, transparent 70%)',
+          animation: `${orbDrift2} 20s ease-in-out infinite`,
+          pointerEvents: 'none',
+        }} />
 
-        {/* Login Panel */}
-        <TabPanel value={activeTab} index={0}>
-          <form onSubmit={handleLoginSubmit}>
-            <Stack spacing={3}>
-              <TextField
-                fullWidth
-                label="Email Address"
-                type="email"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Email sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
-              <TextField
-                fullWidth
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={handleClickShowPassword}
-                        edge="end"
-                        sx={{ color: '#666666' }}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{
-                  borderRadius: 3,
-                  height: 56,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
-                  boxShadow: '0 8px 32px rgba(47, 133, 90, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #276749 0%, #1e4d33 100%)',
-                    boxShadow: '0 12px 40px rgba(47, 133, 90, 0.4)',
-                    transform: 'translateY(-2px)',
-                  },
-                  '&:disabled': {
-                    background: 'rgba(47, 133, 90, 0.6)',
-                  },
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
-              </Button>
-              <Divider sx={{ my: 2, color: '#cccccc' }}>OR</Divider>
-              <Button
-                onClick={() => googleLogin()}
-                fullWidth
-                variant="outlined"
-                size="large"
-                disabled={loading}
-                sx={{
-                  borderRadius: 3,
-                  height: 56,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderColor: '#2f855a',
-                  color: '#2f855a',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #2f855a',
-                  '&:hover': {
-                    backgroundColor: 'rgba(47, 133, 90, 0.05)',
-                    borderColor: '#276749',
-                  },
-                  '&:disabled': {
-                    borderColor: 'rgba(47, 133, 90, 0.3)',
-                    color: 'rgba(47, 133, 90, 0.3)',
-                  },
-                  transition: 'all 0.3s ease',
-                  display: 'flex',
-                  gap: 1,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-              </Button>
-            </Stack>
-          </form>
-        </TabPanel>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 440,
+            position: 'relative',
+            zIndex: 1,
+            animation: `${fadeInUp} 0.7s cubic-bezier(.22,1,.36,1) both`,
+          }}
+        >
+          {/* Mobile-only logo */}
+          <Box
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1.5,
+              mb: 4,
+            }}
+          >
+            <Box sx={{
+              width: 40, height: 40, borderRadius: 2,
+              background: 'linear-gradient(135deg, #4fd191, #2f855a)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem',
+            }}>
+              🌾
+            </Box>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.4rem', color: '#fff' }}>YieldWise</Typography>
+          </Box>
 
-        {/* Register Panel */}
-        <TabPanel value={activeTab} index={1}>
-          <form onSubmit={handleRegisterSubmit}>
-            <Stack spacing={3}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={registerForm.name}
-                onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Person sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
-              <TextField
-                fullWidth
-                label="Email Address"
-                type="email"
-                value={registerForm.email}
-                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Email sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
-              <TextField
-                fullWidth
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={registerForm.password}
-                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={handleClickShowPassword}
-                        edge="end"
-                        sx={{ color: '#666666' }}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
-              <TextField
-                fullWidth
-                label="Confirm Password"
-                type={showPassword ? 'text' : 'password'}
-                value={registerForm.confirmPassword}
-                onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
-                required
-                variant="outlined"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: '#2f855a' }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldSx}
-              />
+          {/* Heading */}
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 800,
+              color: '#fff',
+              mb: 1,
+              letterSpacing: '-0.02em',
+              fontSize: { xs: '1.6rem', sm: '1.8rem' },
+            }}
+          >
+            {activeTab === 'login' ? 'Welcome back' : 'Create account'}
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.45)', mb: 4, fontSize: '0.95rem' }}>
+            {activeTab === 'login'
+              ? 'Sign in to access your farming dashboard'
+              : 'Start your smart farming journey today'}
+          </Typography>
+
+          {/* Tab Switcher */}
+          <Box
+            sx={{
+              display: 'flex',
+              mb: 4,
+              p: 0.5,
+              borderRadius: 3,
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {(['login', 'register'] as const).map((tab) => (
               <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
+                key={tab}
+                onClick={() => switchTab(tab)}
                 sx={{
-                  borderRadius: 3,
-                  height: 56,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
+                  flex: 1,
+                  borderRadius: 2.5,
+                  py: 1.2,
                   textTransform: 'none',
-                  background: 'linear-gradient(135deg, #2f855a 0%, #276749 100%)',
-                  boxShadow: '0 8px 32px rgba(47, 133, 90, 0.3)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #276749 0%, #1e4d33 100%)',
-                    boxShadow: '0 12px 40px rgba(47, 133, 90, 0.4)',
-                    transform: 'translateY(-2px)',
-                  },
-                  '&:disabled': {
-                    background: 'rgba(47, 133, 90, 0.6)',
-                  },
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
                   transition: 'all 0.3s ease',
+                  color: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.4)',
+                  background: activeTab === tab
+                    ? 'linear-gradient(135deg, rgba(79,209,145,0.2) 0%, rgba(47,133,90,0.15) 100%)'
+                    : 'transparent',
+                  boxShadow: activeTab === tab ? '0 2px 12px rgba(47,133,90,0.2)' : 'none',
+                  '&:hover': {
+                    color: '#fff',
+                    background: activeTab === tab
+                      ? 'linear-gradient(135deg, rgba(79,209,145,0.25), rgba(47,133,90,0.2))'
+                      : 'rgba(255,255,255,0.04)',
+                  },
                 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
+                {tab === 'login' ? 'Sign In' : 'Sign Up'}
               </Button>
-              <Divider sx={{ my: 2, color: '#cccccc' }}>OR</Divider>
-              <Button
-                onClick={() => googleLogin()}
-                fullWidth
-                variant="outlined"
-                size="large"
-                disabled={loading}
-                sx={{
-                  borderRadius: 3,
-                  height: 56,
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderColor: '#2f855a',
-                  color: '#2f855a',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid #2f855a',
-                  '&:hover': {
-                    backgroundColor: 'rgba(47, 133, 90, 0.05)',
-                    borderColor: '#276749',
-                  },
-                  '&:disabled': {
-                    borderColor: 'rgba(47, 133, 90, 0.3)',
-                    color: 'rgba(47, 133, 90, 0.3)',
-                  },
-                  transition: 'all 0.3s ease',
-                  display: 'flex',
-                  gap: 1,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                Sign up with Google
-              </Button>
-            </Stack>
-          </form>
-        </TabPanel>
-      </Paper>
+            ))}
+          </Box>
+
+          {/* Alerts */}
+          {error && (
+            <Fade in><Alert severity="error" sx={{ mb: 3, borderRadius: 2, '& .MuiAlert-message': { color: '#fca5a5' } }} onClose={() => setError('')}>{error}</Alert></Fade>
+          )}
+          {success && (
+            <Fade in><Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccess('')}>{success}</Alert></Fade>
+          )}
+
+          {/* ── Google Sign-in (always shown first) ── */}
+          <Button
+            onClick={() => googleLogin()}
+            fullWidth
+            variant="outlined"
+            size="large"
+            disabled={loading}
+            sx={googleBtnSx}
+          >
+            <GoogleIcon />
+            Continue with Google
+          </Button>
+
+          <Divider sx={{ my: 3, '&::before, &::after': { borderColor: 'rgba(255,255,255,0.08)' } }}>
+            <Typography sx={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.1em', px: 2 }}>
+              OR
+            </Typography>
+          </Divider>
+
+          {/* ── Login Form ── */}
+          {activeTab === 'login' && (
+            <Fade in timeout={350}>
+              <form onSubmit={handleLoginSubmit}>
+                <Stack spacing={2.5}>
+                  <TextField
+                    fullWidth label="Email Address" type="email"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Email sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <TextField
+                    fullWidth label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Lock sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" sx={{ color: 'rgba(255,255,255,0.35)' }}>
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <Button type="submit" fullWidth variant="contained" size="large" disabled={loading} endIcon={!loading && <ArrowForward />} sx={submitBtnSx}>
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+                  </Button>
+                </Stack>
+              </form>
+            </Fade>
+          )}
+
+          {/* ── Register Form ── */}
+          {activeTab === 'register' && (
+            <Fade in timeout={350}>
+              <form onSubmit={handleRegisterSubmit}>
+                <Stack spacing={2.5}>
+                  <TextField
+                    fullWidth label="Full Name"
+                    value={registerForm.name}
+                    onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Person sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <TextField
+                    fullWidth label="Email Address" type="email"
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Email sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <TextField
+                    fullWidth label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={registerForm.password}
+                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Lock sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" sx={{ color: 'rgba(255,255,255,0.35)' }}>
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <TextField
+                    fullWidth label="Confirm Password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={registerForm.confirmPassword}
+                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                    required variant="outlined"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><Lock sx={{ color: '#4fd191', fontSize: 20 }} /></InputAdornment>,
+                    }}
+                    sx={textFieldSx}
+                  />
+                  <Button type="submit" fullWidth variant="contained" size="large" disabled={loading} endIcon={!loading && <ArrowForward />} sx={submitBtnSx}>
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
+                  </Button>
+                </Stack>
+              </form>
+            </Fade>
+          )}
+
+          {/* Footer text */}
+          <Typography sx={{ textAlign: 'center', mt: 4, color: 'rgba(255,255,255,0.25)', fontSize: '0.8rem' }}>
+            {activeTab === 'login' ? (
+              <>Don't have an account?{' '}
+                <Box component="span" onClick={() => switchTab('register')} sx={{ color: '#4fd191', cursor: 'pointer', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
+                  Sign up free
+                </Box>
+              </>
+            ) : (
+              <>Already have an account?{' '}
+                <Box component="span" onClick={() => switchTab('login')} sx={{ color: '#4fd191', cursor: 'pointer', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
+                  Sign in
+                </Box>
+              </>
+            )}
+          </Typography>
+        </Box>
+      </Box>
     </Box>
   );
 };

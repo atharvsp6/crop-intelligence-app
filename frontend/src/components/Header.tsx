@@ -13,7 +13,6 @@ import {
   ListItemText,
   Divider,
   Tooltip,
-  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -21,10 +20,8 @@ import {
   Brightness7,
   Agriculture,
   Nature,
-  Notifications,
   AccountCircle,
   Logout,
-  AutoAwesome,
   Language,
   Check,
 } from '@mui/icons-material';
@@ -161,17 +158,6 @@ const Header: React.FC<HeaderProps> = ({
             className="chip-muted"
             sx={{ pl: 0.5, pr: 1.5, height: 32 }}
           />
-          <Chip
-            icon={<AutoAwesome fontSize="small" />}
-            label={t('header.aiRefreshed')}
-            sx={{
-              borderRadius: '999px',
-              height: 32,
-              backgroundColor: 'rgba(246, 173, 85, 0.16)',
-              color: 'secondary.dark',
-              '& .MuiChip-icon': { color: 'secondary.dark' },
-            }}
-          />
         </Box>
 
         <Box sx={{ flexGrow: 1 }} />
@@ -214,21 +200,6 @@ const Header: React.FC<HeaderProps> = ({
               }}
             >
               {darkMode ? <Brightness7 /> : <Brightness4 />}
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip title={t('header.notifications')}>
-            <IconButton
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                border: '1px solid rgba(125, 228, 154, 0.16)',
-              }}
-            >
-              <Badge color="secondary" variant="dot">
-                <Notifications />
-              </Badge>
             </IconButton>
           </Tooltip>
 

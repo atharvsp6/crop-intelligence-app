@@ -1,7 +1,6 @@
-from flask import jsonify
 from datetime import datetime, timedelta
-import random
 from database import get_collection
+
 
 class DashboardService:
     def __init__(self):
@@ -9,222 +8,159 @@ class DashboardService:
         self.predictions_collection = get_collection('crop_yield_data')
         self.activities_collection = get_collection('user_activities')
 
-    def get_real_time_stats(self, user_id=None):
-        """Get real-time dashboard statistics"""
+    # ── helpers ──────────────────────────────────────────────────────────
+    def _safe_count(self, collection, query=None):
+        """Return a count or 0 if the collection doesn't exist / errors."""
         try:
-            # Get actual user count
-            total_users = self.users_collection.count_documents({})
-            
-            # Get prediction count from last 7 days
+            return collection.count_documents(query or {})
+        except Exception:
+            return 0
+
+    def _sum_user_stat(self, field: str) -> int:
+        """Sum a numeric stats field across all user documents."""
+        try:
+            pipeline = [
+                {'$group': {'_id': None, 'total': {'$sum': f'$stats.{field}'}}}
+            ]
+            result = list(self.users_collection.aggregate(pipeline))
+            return int(result[0]['total']) if result else 0
+        except Exception:
+            return 0
+
+    # ── stats ────────────────────────────────────────────────────────────
+    def get_real_time_stats(self, user_id=None):
+        """Return dashboard statistics from real database counts.
+        No random/mock values — every number comes from MongoDB."""
+        try:
             week_ago = datetime.utcnow() - timedelta(days=7)
-            recent_predictions = self.predictions_collection.count_documents({
-                'created_at': {'$gte': week_ago}
-            })
-            
-            # Get user activities for alerts resolved calculation
-            resolved_alerts = self.activities_collection.count_documents({
-                'activity_type': 'alert_resolved',
-                'timestamp': {'$gte': week_ago}
-            })
-            
-            # Calculate resolution rate (mock calculation)
-            total_alerts = max(resolved_alerts + random.randint(5, 15), 20)
-            resolution_rate = min((resolved_alerts / total_alerts) * 100, 95)
-            
+            two_weeks_ago = datetime.utcnow() - timedelta(days=14)
+
+            # ─ Total predictions (from user-level counters) ─
+            total_predictions = self._sum_user_stat('predictions_made')
+
+            # Predictions saved in last 7 days vs previous 7 days
+            recent_preds = self._safe_count(
+                self.predictions_collection,
+                {'created_at': {'$gte': week_ago}},
+            )
+            prev_preds = self._safe_count(
+                self.predictions_collection,
+                {'created_at': {'$gte': two_weeks_ago, '$lt': week_ago}},
+            )
+            if prev_preds > 0:
+                pct = round(((recent_preds - prev_preds) / prev_preds) * 100)
+                pred_delta = f'{pct:+d}% vs last week'
+            elif recent_preds > 0:
+                pred_delta = f'+{recent_preds} this week'
+            else:
+                pred_delta = 'Make a prediction to get started'
+
+            # ─ Registered users ─
+            total_users = self._safe_count(self.users_collection)
+            new_users = self._safe_count(
+                self.users_collection,
+                {'created_at': {'$gte': week_ago}},
+            )
+            users_delta = (
+                f'+{new_users} joined this week'
+                if new_users > 0
+                else 'Invite farmers to join'
+            )
+
+            # ─ Disease detections (from user-level counters) ─
+            total_detections = self._sum_user_stat('diseases_detected')
+
             stats = [
                 {
-                    'label': 'Successful predictions',
-                    'value': f'{recent_predictions:,}' if recent_predictions > 0 else '1,284',
-                    'delta': f'+{random.randint(8, 15)}% this week',
+                    'label': 'Total predictions',
+                    'value': f'{total_predictions:,}',
+                    'delta': pred_delta,
                     'icon': 'ShowChart',
                 },
                 {
-                    'label': 'Farms optimized',
-                    'value': f'{total_users}' if total_users > 0 else '642',
-                    'delta': f'+{random.randint(2, 8)} new partners',
+                    'label': 'Registered users',
+                    'value': f'{total_users:,}',
+                    'delta': users_delta,
                     'icon': 'Grass',
                 },
                 {
-                    'label': 'Risk alerts resolved',
-                    'value': f'{resolution_rate:.0f}%',
-                    'delta': f'Response time ↓ {random.randint(12, 25)}%',
+                    'label': 'Disease scans',
+                    'value': f'{total_detections:,}',
+                    'delta': 'From uploaded images',
                     'icon': 'Bolt',
                 },
             ]
-            
-            return {
-                'success': True,
-                'stats': stats
-            }
-            
+
+            return {'success': True, 'stats': stats}
+
         except Exception as e:
-            # Return fallback data if database fails
             return {
                 'success': False,
                 'error': str(e),
                 'stats': [
-                    {
-                        'label': 'Successful predictions',
-                        'value': '1,284',
-                        'delta': '+12% this week',
-                        'icon': 'ShowChart',
-                    },
-                    {
-                        'label': 'Farms optimized',
-                        'value': '642',
-                        'delta': '+48 new partners',
-                        'icon': 'Grass',
-                    },
-                    {
-                        'label': 'Risk alerts resolved',
-                        'value': '87%',
-                        'delta': 'Response time ↓ 18%',
-                        'icon': 'Bolt',
-                    },
-                ]
+                    {'label': 'Total predictions', 'value': '0',
+                     'delta': 'Unable to load', 'icon': 'ShowChart'},
+                    {'label': 'Registered users', 'value': '0',
+                     'delta': 'Unable to load', 'icon': 'Grass'},
+                    {'label': 'Disease scans', 'value': '0',
+                     'delta': 'Unable to load', 'icon': 'Bolt'},
+                ],
             }
 
+    # ── yield trends ─────────────────────────────────────────────────────
     def get_yield_trends(self, user_id=None, months=6):
-        """Get yield trend data"""
+        """Return yield trend data from stored predictions.
+        Returns an empty list (with has_data=False) when there is no history."""
         try:
-            # Get actual yield data from database
+            cutoff = datetime.utcnow() - timedelta(days=30 * months)
             pipeline = [
-                {
-                    '$match': {
-                        'created_at': {
-                            '$gte': datetime.utcnow() - timedelta(days=30 * months)
-                        }
-                    }
-                },
+                {'$match': {'created_at': {'$gte': cutoff}}},
                 {
                     '$group': {
                         '_id': {
                             'month': {'$month': '$created_at'},
-                            'year': {'$year': '$created_at'}
+                            'year': {'$year': '$created_at'},
                         },
-                        'avg_yield': {'$avg': '$yield'}
+                        'avg_yield': {'$avg': '$predicted_yield'},
+                        'count': {'$sum': 1},
                     }
                 },
-                {'$sort': {'_id.year': 1, '_id.month': 1}}
+                {'$sort': {'_id.year': 1, '_id.month': 1}},
             ]
-            
-            results = list(self.predictions_collection.aggregate(pipeline))
-            
-            if results:
-                # Convert to frontend format
-                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                
-                trends = []
-                for result in results[-6:]:  # Last 6 months
-                    month_idx = result['_id']['month'] - 1
-                    trends.append({
-                        'month': month_names[month_idx],
-                        'yield': round(result['avg_yield'] / 100, 0)  # Scale down for chart
-                    })
-                
-                return {
-                    'success': True,
-                    'trends': trends
-                }
-            else:
-                # Return mock data with some variation
-                base_data = [
-                    { 'month': 'Mar', 'yield': 42 },
-                    { 'month': 'Apr', 'yield': 48 },
-                    { 'month': 'May', 'yield': 57 },
-                    { 'month': 'Jun', 'yield': 63 },
-                    { 'month': 'Jul', 'yield': 71 },
-                    { 'month': 'Aug', 'yield': 76 },
-                    { 'month': 'Sep', 'yield': 83 },
-                ]
-                
-                # Add some randomness to make it more realistic
-                for item in base_data:
-                    item['yield'] += random.randint(-5, 8)
-                
-                return {
-                    'success': True,
-                    'trends': base_data
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
 
-    def get_soil_health_signals(self, user_id=None):
-        """Get soil health monitoring signals"""
-        try:
-            # In a real implementation, this would connect to IoT sensors
-            # For now, generate realistic varied data
-            
-            moisture_level = random.randint(55, 85)
-            nutrient_status = random.choice(['Good', 'Moderate', 'Low'])
-            pest_risk = random.choice(['Low', 'Medium', 'High'])
-            weather_risk = random.choice(['Clear', 'Alert', 'Warning'])
-            
-            signals = [
-                {
-                    'title': 'Soil moisture',
-                    'score': f'{moisture_level}%',
-                    'state': 'Optimal' if moisture_level > 65 else 'Monitor closely',
-                    'tone': 'success' if moisture_level > 65 else 'warning'
-                },
-                {
-                    'title': 'Nutrient balance',
-                    'score': nutrient_status,
-                    'state': {
-                        'Good': 'Excellent levels detected',
-                        'Moderate': 'Add organic matter',
-                        'Low': 'Fertilizer needed soon'
-                    }[nutrient_status],
-                    'tone': {
-                        'Good': 'success',
-                        'Moderate': 'warning',
-                        'Low': 'error'
-                    }[nutrient_status]
-                },
-                {
-                    'title': 'Pest pressure',
-                    'score': pest_risk,
-                    'state': {
-                        'Low': 'Regular monitoring sufficient',
-                        'Medium': 'Scouting recommended next week',
-                        'High': 'Immediate action required'
-                    }[pest_risk],
-                    'tone': {
-                        'Low': 'info',
-                        'Medium': 'warning',
-                        'High': 'error'
-                    }[pest_risk]
-                },
-                {
-                    'title': 'Weather risk',
-                    'score': weather_risk,
-                    'state': {
-                        'Clear': 'Favorable conditions ahead',
-                        'Alert': 'High winds predicted Friday',
-                        'Warning': 'Heavy rain expected this week'
-                    }[weather_risk],
-                    'tone': {
-                        'Clear': 'success',
-                        'Alert': 'error',
-                        'Warning': 'error'
-                    }[weather_risk]
-                }
+            results = list(self.predictions_collection.aggregate(pipeline))
+
+            month_names = [
+                'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
             ]
-            
-            return {
-                'success': True,
-                'signals': signals
-            }
-            
+
+            if results:
+                trends = [
+                    {
+                        'month': month_names[r['_id']['month'] - 1],
+                        'yield': round(r['avg_yield'], 1),
+                    }
+                    for r in results[-6:]
+                ]
+                return {'success': True, 'trends': trends, 'has_data': True}
+
+            return {'success': True, 'trends': [], 'has_data': False}
+
         except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            return {'success': False, 'error': str(e), 'trends': [], 'has_data': False}
+
+    # ── soil / field health ──────────────────────────────────────────────
+    def get_soil_health_signals(self, user_id=None):
+        """Soil-health signals require IoT sensor integration.
+        Returns an empty list with a flag so the frontend can show an
+        appropriate message instead of fabricated numbers."""
+        return {
+            'success': True,
+            'signals': [],
+            'has_sensors': False,
+            'message': 'Connect IoT soil probes for live field data.',
+        }
+
 
 dashboard_service = DashboardService()

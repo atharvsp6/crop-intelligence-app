@@ -13,6 +13,8 @@ import {
   Paper,
   CircularProgress,
   IconButton,
+  useTheme,
+  alpha,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -22,6 +24,9 @@ import {
   Save,
   Edit,
   CameraAlt,
+  Star,
+  AllInclusive,
+  Verified,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE } from '../config';
@@ -29,6 +34,8 @@ import { useAuth } from '../context/AuthContext';
 
 const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
+  const theme = useTheme();
+  const dark = theme.palette.mode === 'dark';
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -41,6 +48,8 @@ const ProfilePage: React.FC = () => {
     region: '',
     crops: '',
   });
+
+  const accentColor = dark ? theme.palette.primary.main : theme.palette.primary.dark;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,7 +78,6 @@ const ProfilePage: React.FC = () => {
         'Content-Type': 'application/json',
       };
 
-      // Upload photo if changed
       if (photoPreview) {
         await axios.put(
           `${API_BASE}/api/auth/profile/photo`,
@@ -100,30 +108,77 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const accountCards = [
+    {
+      icon: <Verified sx={{ fontSize: 28, color: 'primary.main' }} />,
+      label: 'Account Type',
+      value: 'Free Tier',
+    },
+    {
+      icon: <Star sx={{ fontSize: 28, color: 'warning.main' }} />,
+      label: 'Member Since',
+      value: new Date().getFullYear().toString(),
+    },
+    {
+      icon: <AllInclusive sx={{ fontSize: 28, color: 'info.main' }} />,
+      label: 'Queries',
+      value: 'Unlimited',
+    },
+  ];
+
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <AccountCircle sx={{ fontSize: 36, color: 'primary.main' }} />
-        Profile
-      </Typography>
+    <Box sx={{ maxWidth: 900, mx: 'auto', p: { xs: 2, md: 3 } }}>
+      {/* Page Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${alpha(accentColor, 0.15)} 0%, ${alpha(accentColor, 0.08)} 100%)`,
+            border: `1px solid ${alpha(accentColor, 0.2)}`,
+            display: 'grid',
+            placeItems: 'center',
+            color: 'primary.main',
+          }}
+        >
+          <AccountCircle />
+        </Box>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+            Profile
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage your account settings and preferences
+          </Typography>
+        </Box>
+      </Box>
 
-      {saved && <Alert severity="success" sx={{ mb: 2 }}>Profile updated successfully!</Alert>}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {saved && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>Profile updated successfully!</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+      {/* Profile Card */}
+      <Card
+        sx={{
+          mb: 3,
+          borderRadius: 3,
+          border: `1px solid ${alpha(accentColor, dark ? 0.15 : 0.1)}`,
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          {/* Avatar + Info Row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3, flexWrap: 'wrap' }}>
             <Box sx={{ position: 'relative', display: 'inline-block' }}>
               <Avatar
                 src={photoPreview || user?.profile_photo || undefined}
                 sx={{
-                  width: 80,
-                  height: 80,
+                  width: 88,
+                  height: 88,
                   fontSize: '2rem',
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, rgba(125, 223, 146, 0.35) 0%, rgba(47, 133, 90, 0.72) 100%)',
-                  color: '#0f1411',
-                  border: '3px solid rgba(125, 228, 154, 0.45)',
+                  background: `linear-gradient(135deg, ${alpha(accentColor, 0.3)} 0%, ${alpha(accentColor, 0.6)} 100%)`,
+                  color: dark ? '#0f1411' : '#fff',
+                  border: `3px solid ${alpha(accentColor, 0.35)}`,
                 }}
               >
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -142,46 +197,54 @@ const ProfilePage: React.FC = () => {
                     onClick={() => fileInputRef.current?.click()}
                     sx={{
                       position: 'absolute',
-                      bottom: -4,
-                      right: -4,
+                      bottom: -2,
+                      right: -2,
                       bgcolor: 'primary.main',
                       color: '#fff',
-                      width: 28,
-                      height: 28,
+                      width: 30,
+                      height: 30,
+                      border: `2px solid ${theme.palette.background.paper}`,
                       '&:hover': { bgcolor: 'primary.dark' },
                     }}
                   >
-                    <CameraAlt sx={{ fontSize: 16 }} />
+                    <CameraAlt sx={{ fontSize: 15 }} />
                   </IconButton>
                 </>
               )}
             </Box>
-            <Box>
-              <Typography variant="h5" fontWeight={600}>{user?.name || 'User'}</Typography>
-              <Typography variant="body2" color="text.secondary">{user?.email || 'No email'}</Typography>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>{user?.name || 'User'}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                {user?.email || 'No email'}
+              </Typography>
               <Chip
                 icon={<Agriculture />}
                 label="Grower"
                 size="small"
                 color="primary"
                 variant="outlined"
-                sx={{ mt: 0.5 }}
+                sx={{ borderRadius: 2 }}
               />
             </Box>
-            <Box sx={{ ml: 'auto' }}>
-              <Button
-                variant={editing ? 'contained' : 'outlined'}
-                startIcon={saving ? <CircularProgress size={16} color="inherit" /> : editing ? <Save /> : <Edit />}
-                onClick={editing ? handleSave : () => setEditing(true)}
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : editing ? 'Save' : 'Edit Profile'}
-              </Button>
-            </Box>
+            <Button
+              variant={editing ? 'contained' : 'outlined'}
+              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : editing ? <Save /> : <Edit />}
+              onClick={editing ? handleSave : () => setEditing(true)}
+              disabled={saving}
+              sx={{
+                borderRadius: 2.5,
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 3,
+              }}
+            >
+              {saving ? 'Saving...' : editing ? 'Save Changes' : 'Edit Profile'}
+            </Button>
           </Box>
 
           <Divider sx={{ mb: 3 }} />
 
+          {/* Form Fields */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
             <TextField
               fullWidth
@@ -189,14 +252,17 @@ const ProfilePage: React.FC = () => {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               disabled={!editing}
-              InputProps={{ startAdornment: <AccountCircle sx={{ mr: 1, color: 'text.secondary' }} /> }}
+              InputProps={{ startAdornment: <AccountCircle sx={{ mr: 1, color: 'text.disabled' }} /> }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <TextField
               fullWidth
               label="Email"
               value={form.email}
               disabled
-              InputProps={{ startAdornment: <Email sx={{ mr: 1, color: 'text.secondary' }} /> }}
+              helperText="Email cannot be changed"
+              InputProps={{ startAdornment: <Email sx={{ mr: 1, color: 'text.disabled' }} /> }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <TextField
               fullWidth
@@ -205,6 +271,8 @@ const ProfilePage: React.FC = () => {
               onChange={(e) => setForm({ ...form, region: e.target.value })}
               disabled={!editing}
               placeholder="e.g. Maharashtra, India"
+              autoComplete="address-level1"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <TextField
               fullWidth
@@ -213,29 +281,52 @@ const ProfilePage: React.FC = () => {
               onChange={(e) => setForm({ ...form, crops: e.target.value })}
               disabled={!editing}
               placeholder="e.g. Wheat, Rice, Cotton"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
           </Box>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" fontWeight={600} gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CalendarMonth color="primary" /> Account Info
-          </Typography>
+      {/* Account Info */}
+      <Card
+        sx={{
+          borderRadius: 3,
+          border: `1px solid ${alpha(accentColor, dark ? 0.12 : 0.08)}`,
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+            <CalendarMonth sx={{ color: 'primary.main', fontSize: 22 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Account Info
+            </Typography>
+          </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
-            <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="caption" color="text.secondary">Account Type</Typography>
-              <Typography variant="body1" fontWeight={600}>Free Tier</Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="caption" color="text.secondary">Member Since</Typography>
-              <Typography variant="body1" fontWeight={600}>2025</Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="caption" color="text.secondary">AI Queries</Typography>
-              <Typography variant="body1" fontWeight={600}>Unlimited</Typography>
-            </Paper>
+            {accountCards.map((card, i) => (
+              <Paper
+                key={i}
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  textAlign: 'center',
+                  borderRadius: 2.5,
+                  border: `1px solid ${theme.palette.divider}`,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    borderColor: alpha(accentColor, 0.3),
+                    backgroundColor: alpha(accentColor, 0.03),
+                  },
+                }}
+              >
+                <Box sx={{ mb: 1 }}>{card.icon}</Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.3 }}>
+                  {card.label}
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                  {card.value}
+                </Typography>
+              </Paper>
+            ))}
           </Box>
         </CardContent>
       </Card>

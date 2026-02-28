@@ -234,24 +234,22 @@ function App() {
                   darkMode={darkMode}
                   onSidebarToggle={handleSidebarToggle}
                 />
-                <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                   <Sidebar open={sidebarOpen} width={SIDEBAR_WIDTH} onClose={() => setSidebarOpen(false)} />
                   <Box
                     component="main"
                     sx={{
                       flexGrow: 1,
-                      width: { xs: '100%', md: '100%' },
+                      minWidth: 0,
                       px: { xs: 2, md: 3, lg: 4 },
                       py: { xs: 3, md: 4, lg: 6 },
-                      overflow: 'auto',
-                      marginLeft: { xs: 0, md: 0 },
-                      transition: 'all 0.3s ease',
-                      minHeight: '100vh',
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      transition: 'padding 0.3s ease',
                       backgroundColor: 'background.default',
                       backgroundImage: darkMode
                         ? 'radial-gradient(circle at 20% 20%, rgba(125, 228, 154, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 0%, rgba(80, 155, 115, 0.07) 0%, transparent 45%)'
                         : 'radial-gradient(circle at 20% 20%, rgba(79, 209, 145, 0.14) 0%, transparent 55%), radial-gradient(circle at 80% 0%, rgba(56, 161, 105, 0.08) 0%, transparent 50%)',
-                      backdropFilter: 'blur(2px)',
                     }}
                   >
                     <Routes>

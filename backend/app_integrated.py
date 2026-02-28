@@ -1292,6 +1292,20 @@ def predict_crop_yield():
     merged_payload = {**payload, **data}
 
     if result.get('success'):
+        # ── Save prediction to DB for dashboard analytics ──
+        try:
+            from database import get_collection
+            pred_collection = get_collection('crop_yield_data')
+            pred_collection.insert_one({
+                'predicted_yield': result.get('predicted_yield'),
+                'crop': payload.get('crop_type') or data.get('crop'),
+                'region': payload.get('region') or data.get('region'),
+                'source': result.get('prediction_source', 'unknown'),
+                'created_at': datetime.utcnow(),
+            })
+        except Exception as save_err:
+            print(f"[Predict Crop] Could not save prediction to DB: {save_err}")
+
         if yield_recommendation_model:
             try:
                 recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)
@@ -1408,6 +1422,20 @@ def predict_crop_yield_public():
     merged_payload = {**payload, **data}
 
     if result.get('success'):
+        # ── Save prediction to DB for dashboard analytics ──
+        try:
+            from database import get_collection
+            pred_collection = get_collection('crop_yield_data')
+            pred_collection.insert_one({
+                'predicted_yield': result.get('predicted_yield'),
+                'crop': payload.get('crop_type') or data.get('crop'),
+                'region': payload.get('region') or data.get('region'),
+                'source': result.get('prediction_source', 'unknown'),
+                'created_at': datetime.utcnow(),
+            })
+        except Exception as save_err:
+            print(f"[Predict Yield] Could not save prediction to DB: {save_err}")
+
         if yield_recommendation_model:
             try:
                 recommendations, _ = _generate_yield_recommendations(result, merged_payload, language)

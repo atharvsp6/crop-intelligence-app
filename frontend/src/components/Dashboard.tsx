@@ -47,26 +47,26 @@ import { useTranslation } from 'react-i18next';
 const baseStatHighlights = [
   {
     labelKey: 'dashboard.stats.items.success.label',
-    fallbackLabel: 'Successful predictions',
-    value: '1,284',
+    fallbackLabel: 'Total predictions',
+    value: '0',
     deltaKey: 'dashboard.stats.items.success.delta',
-    fallbackDelta: '+12% this week',
+    fallbackDelta: 'Make a prediction to get started',
     icon: <ShowChart fontSize="small" />,
   },
   {
     labelKey: 'dashboard.stats.items.farms.label',
-    fallbackLabel: 'Farms optimized',
-    value: '642',
+    fallbackLabel: 'Registered users',
+    value: '0',
     deltaKey: 'dashboard.stats.items.farms.delta',
-    fallbackDelta: '+48 new partners',
+    fallbackDelta: 'Invite farmers to join',
     icon: <Grass fontSize="small" />,
   },
   {
     labelKey: 'dashboard.stats.items.risk.label',
-    fallbackLabel: 'Risk alerts resolved',
-    value: '87%',
+    fallbackLabel: 'Disease scans',
+    value: '0',
     deltaKey: 'dashboard.stats.items.risk.delta',
-    fallbackDelta: 'Response time ↓ 18%',
+    fallbackDelta: 'From uploaded images',
     icon: <Bolt fontSize="small" />,
   },
 ];
@@ -104,50 +104,16 @@ const baseFeatureShortcuts = [
   },
 ];
 
-const baseYieldTrendData = [
-  { monthKey: 'mar', yield: 42 },
-  { monthKey: 'apr', yield: 48 },
-  { monthKey: 'may', yield: 57 },
-  { monthKey: 'jun', yield: 63 },
-  { monthKey: 'jul', yield: 71 },
-  { monthKey: 'aug', yield: 76 },
-  { monthKey: 'sep', yield: 83 },
-];
+const baseYieldTrendData: { monthKey: string; yield: number }[] = [];
 
-const baseSoilHealthSignals = [
-  {
-    titleKey: 'dashboard.soil.signals.moisture.title',
-    fallbackTitle: 'Soil moisture',
-    score: '68%',
-    stateKey: 'dashboard.soil.signals.moisture.state',
-    fallbackState: 'Optimal',
-    tone: 'success',
-  },
-  {
-    titleKey: 'dashboard.soil.signals.nutrients.title',
-    fallbackTitle: 'Nutrient balance',
-    score: 'Moderate',
-    stateKey: 'dashboard.soil.signals.nutrients.state',
-    fallbackState: 'Add organic matter',
-    tone: 'warning',
-  },
-  {
-    titleKey: 'dashboard.soil.signals.pest.title',
-    fallbackTitle: 'Pest pressure',
-    score: 'Low',
-    stateKey: 'dashboard.soil.signals.pest.state',
-    fallbackState: 'Scouting recommended next week',
-    tone: 'info',
-  },
-  {
-    titleKey: 'dashboard.soil.signals.weather.title',
-    fallbackTitle: 'Weather risk',
-    score: 'Alert',
-    stateKey: 'dashboard.soil.signals.weather.state',
-    fallbackState: 'High winds predicted Friday',
-    tone: 'error',
-  },
-];
+const baseSoilHealthSignals: {
+  titleKey: string;
+  fallbackTitle: string;
+  score: string;
+  stateKey: string;
+  fallbackState: string;
+  tone: string;
+}[] = [];
 
 const baseQuickInsights = [
   { labelKey: 'dashboard.quickInsights.irrigation', icon: <Timeline fontSize="small" />, accent: 'primary.main' },
@@ -694,29 +660,41 @@ const Dashboard: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             {t('dashboard.yield.description')}
           </Typography>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={yieldChartData}>
-              <defs>
-                <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7DDF92" stopOpacity={0.9} />
-                  <stop offset="95%" stopColor="#7DDF92" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(125,223,146,0.25)" horizontal vertical={false} />
-              <XAxis dataKey="month" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-              <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} width={40} />
-              <RechartTooltip
-                cursor={{ stroke: 'rgba(125,223,146,0.35)', strokeWidth: 1 }}
-                contentStyle={{
-                  borderRadius: 14,
-                  border: '1px solid rgba(125,223,146,0.35)',
-                  background: 'var(--bg-surface)',
-                  boxShadow: 'var(--shadow-soft)',
-                }}
-              />
-              <Area type="monotone" dataKey="yield" stroke="#2f855a" fill="url(#yieldGradient)" strokeWidth={3} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {yieldChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={yieldChartData}>
+                <defs>
+                  <linearGradient id="yieldGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#7DDF92" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="#7DDF92" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(125,223,146,0.25)" horizontal vertical={false} />
+                <XAxis dataKey="month" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" tickLine={false} axisLine={false} width={40} />
+                <RechartTooltip
+                  cursor={{ stroke: 'rgba(125,223,146,0.35)', strokeWidth: 1 }}
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: '1px solid rgba(125,223,146,0.35)',
+                    background: 'var(--bg-surface)',
+                    boxShadow: 'var(--shadow-soft)',
+                  }}
+                />
+                <Area type="monotone" dataKey="yield" stroke="#2f855a" fill="url(#yieldGradient)" strokeWidth={3} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, flexDirection: 'column', gap: 1.5 }}>
+              <Timeline sx={{ fontSize: 48, color: 'text.disabled' }} />
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                No prediction history yet.
+              </Typography>
+              <Button size="small" variant="outlined" onClick={() => navigate('/dashboard/crop-predictor')}>
+                Make your first prediction
+              </Button>
+            </Box>
+          )}
         </Card>
 
         <Card className="surface-card" sx={{ p: { xs: 2.5, md: 3 } }}>
@@ -752,7 +730,12 @@ const Dashboard: React.FC = () => {
                 <Chip label={signal.score} color={signal.tone as any} variant="outlined" sx={{ borderRadius: '999px' }} />
               </Box>
             )) : (
-              <Typography>{t('dashboard.readiness.loading')}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1.5, py: 4 }}>
+                <Grass sx={{ fontSize: 48, color: 'text.disabled' }} />
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 280 }}>
+                  No sensor data available. Connect IoT soil probes for live field readiness signals.
+                </Typography>
+              </Box>
             )}
           </Stack>
         </Card>

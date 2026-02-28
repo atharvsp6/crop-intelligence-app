@@ -8,7 +8,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Chip,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -20,7 +19,6 @@ import {
   Forum,
   Chat,
   Translate,
-  Insights,
   ShowChart,
   Storefront,
   AutoAwesome,
@@ -39,20 +37,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const dark = theme.palette.mode === 'dark';
 
   const { t } = useTranslation();
 
   const menuItems = [
     { key: 'dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { key: 'cropPredictor', icon: <Agriculture />, path: '/dashboard/crop-predictor', badge: 'ML' },
-    { key: 'diseaseDetector', icon: <LocalHospital />, path: '/dashboard/disease-detector', badge: 'AI' },
-    { key: 'financialDashboard', icon: <TrendingUp />, path: '/dashboard/financial-dashboard', badge: 'ROI' },
-    { key: 'marketIntelligence', icon: <ShowChart />, path: '/dashboard/market-intelligence', badge: 'Live' },
-    { key: 'mandiData', icon: <Storefront />, path: '/dashboard/mandi-data', badge: 'Gov' },
-    { key: 'communityForum', icon: <Forum />, path: '/dashboard/community-forum', badge: 'Social' },
-    { key: 'chatbot', icon: <Chat />, path: '/dashboard/chatbot', badge: 'Beta' },
+    { key: 'cropPredictor', icon: <Agriculture />, path: '/dashboard/crop-predictor' },
+    { key: 'diseaseDetector', icon: <LocalHospital />, path: '/dashboard/disease-detector' },
+    { key: 'financialDashboard', icon: <TrendingUp />, path: '/dashboard/financial-dashboard' },
+    { key: 'marketIntelligence', icon: <ShowChart />, path: '/dashboard/market-intelligence' },
+    { key: 'mandiData', icon: <Storefront />, path: '/dashboard/mandi-data' },
+    { key: 'communityForum', icon: <Forum />, path: '/dashboard/community-forum' },
+    { key: 'chatbot', icon: <Chat />, path: '/dashboard/chatbot' },
     { key: 'multilingualChat', icon: <Translate />, path: '/dashboard/multilingual-chatbot' },
-    { key: 'smartAdvisor', icon: <AutoAwesome />, path: '/dashboard/smart-advisor', badge: 'AI' },
+    { key: 'smartAdvisor', icon: <AutoAwesome />, path: '/dashboard/smart-advisor' },
   ];
 
   const collapsedWidth = 64;
@@ -78,11 +77,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
           width: isMobile ? `${width}px` : (open ? `${width}px` : `${collapsedWidth}px`),
           boxSizing: 'border-box',
           marginTop: isMobile ? 0 : '72px',
-          padding: open ? '28px 18px 32px' : '28px 8px 32px',
+          padding: open ? '24px 16px 24px' : '24px 8px 24px',
           border: 'none',
           display: 'flex',
           flexDirection: 'column',
-          gap: 28,
+          gap: 16,
           overflowX: 'hidden',
           transition: 'width 0.3s ease, padding 0.3s ease',
         },
@@ -97,11 +96,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
             fontWeight: 600,
             mb: 1,
             display: 'block',
+            fontSize: '0.7rem',
           }}
         >
           {t('sidebar.navigation')}
         </Typography>
-        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
           {menuItems.map((item) => {
             const selected = location.pathname === item.path;
             return (
@@ -110,29 +110,31 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
                 onClick={() => handleNavigate(item.path)}
                 selected={selected}
                 sx={{
-                  borderRadius: 2,
+                  borderRadius: 2.5,
                   px: 1.5,
-                  py: 1.2,
+                  py: 1,
                   alignItems: 'center',
                   gap: 1,
-                  backgroundColor: selected ? 'rgba(125, 228, 154, 0.12)' : 'transparent',
-                  border: selected ? '1px solid rgba(125, 228, 154, 0.35)' : '1px solid transparent',
-                  transition: 'all 0.25s ease',
+                  backgroundColor: selected
+                    ? (dark ? 'rgba(125, 228, 154, 0.1)' : 'rgba(47, 133, 90, 0.08)')
+                    : 'transparent',
+                  border: selected
+                    ? `1px solid ${dark ? 'rgba(125, 228, 154, 0.25)' : 'rgba(47, 133, 90, 0.15)'}`
+                    : '1px solid transparent',
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    backgroundColor: 'rgba(125, 228, 154, 0.16)',
-                    borderColor: 'rgba(125, 228, 154, 0.4)',
-                    transform: 'translateX(6px)',
-                  },
-                  '& .MuiTypography-root': {
-                    fontWeight: selected ? 600 : 500,
+                    backgroundColor: dark ? 'rgba(125, 228, 154, 0.08)' : 'rgba(47, 133, 90, 0.06)',
+                    borderColor: dark ? 'rgba(125, 228, 154, 0.15)' : 'rgba(47, 133, 90, 0.1)',
+                    transform: 'translateX(4px)',
                   },
                 }}
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: 36,
+                    minWidth: 34,
                     color: selected ? 'primary.main' : 'text.secondary',
-                    '& svg': { fontSize: 22 },
+                    '& svg': { fontSize: 20 },
+                    transition: 'color 0.2s ease',
                   }}
                 >
                   {item.icon}
@@ -140,73 +142,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, width = 272, onClose }) => {
                 <ListItemText
                   primary={t(`sidebar.items.${item.key}`)}
                   primaryTypographyProps={{
-                    fontSize: '0.95rem',
+                    fontSize: '0.9rem',
+                    fontWeight: selected ? 600 : 450,
                     letterSpacing: '0.01em',
                   }}
                 />
-                {item.badge && (
-                  <Chip
-                    label={item.badge}
-                    size="small"
-                    color={item.badge === 'Beta' ? 'secondary' : 'primary'}
-                    sx={{
-                      height: 22,
-                      borderRadius: '999px',
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                    }}
-                  />
-                )}
               </ListItemButton>
             );
           })}
         </List>
       </Box>
 
-      <Box sx={{ mt: 'auto' }}>
-        <Box
-          sx={{
-            p: 2.2,
-            borderRadius: 3,
-            background: 'linear-gradient(140deg, rgba(124, 219, 138, 0.18) 0%, rgba(45, 85, 63, 0.25) 100%)',
-            border: '1px solid rgba(124, 219, 138, 0.35)',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-            <Box
-              sx={{
-                width: 38,
-                height: 38,
-                borderRadius: '14px',
-                backgroundColor: 'rgba(124, 219, 138, 0.25)',
-                display: 'grid',
-                placeItems: 'center',
-                color: 'primary.main',
-              }}
-            >
-              <Insights fontSize="small" />
-            </Box>
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                {t('sidebar.tips.title')}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {t('sidebar.tips.subtitle')}
-              </Typography>
-            </Box>
-          </Box>
-          <Chip
-            label={t('sidebar.tips.cta')}
-            size="small"
-            sx={{
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              color: 'text.primary',
-              fontWeight: 600,
-              marginBottom:10
-            }}
-          />
-        </Box>
-      </Box>
+
     </Drawer>
   );
 };

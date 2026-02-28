@@ -920,8 +920,7 @@ const CropPredictor: React.FC = () => {
         
         if (!options.background) {
           setProgress(80);
-          setProgressMessage(t('cropPredictor.progress.gemini', 'Getting Gemini AI recommendations...'));
-          // Simulate Gemini processing time
+          setProgressMessage(t('cropPredictor.progress.gemini', 'Generating recommendations...'));
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         
@@ -1087,11 +1086,9 @@ const CropPredictor: React.FC = () => {
               sx={{
                 position: 'absolute',
                 inset: 0,
-                opacity: 0.18,
-                backgroundImage:
-                  'url(https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=1600&q=80)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
+                opacity: 0.15,
+                background:
+                  'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.2) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.1) 0%, transparent 40%)',
               }}
             />
             <Stack spacing={2.5} sx={{ position: 'relative', zIndex: 1 }}>
@@ -1500,10 +1497,10 @@ const CropPredictor: React.FC = () => {
                       <Chip
                         size="small"
                         variant="outlined"
-                        color={prediction.ai_recommendations_source.startsWith('gemini') ? 'secondary' : 'warning'}
+                        color={prediction.ai_recommendations_source.startsWith('gemini') ? 'success' : 'warning'}
                         label={
                           prediction.ai_recommendations_source.startsWith('gemini')
-                            ? t('cropPredictor.results.aiSourceGemini', { defaultValue: 'Gemini AI insights' })
+                            ? t('cropPredictor.results.aiSourceGemini', { defaultValue: 'Advanced insights' })
                             : t('cropPredictor.results.aiSourceFallback', { defaultValue: 'Rule-based guidance' })
                         }
                         sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: '#F1F8E9' }}

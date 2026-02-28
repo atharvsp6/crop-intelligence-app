@@ -53,6 +53,8 @@ def bhoomi_process():
         data = request.get_json(force=True)
         message = (data.get("message") or "").strip()
         input_type = data.get("input_type", "text")
+        lat = data.get("lat")
+        lon = data.get("lon")
 
         if not message:
             return jsonify({
@@ -62,8 +64,16 @@ def bhoomi_process():
 
         user_id = get_jwt_identity() or "anonymous"
 
+        # Build location context from browser geolocation
+        location_ctx = None
+        if lat is not None and lon is not None:
+            try:
+                location_ctx = {"lat": float(lat), "lon": float(lon)}
+            except (ValueError, TypeError):
+                pass
+
         engine = _get_engine()
-        result = engine.process(message, str(user_id), input_type)
+        result = engine.process(message, str(user_id), input_type, location=location_ctx)
 
         return jsonify({"success": True, **result})
 

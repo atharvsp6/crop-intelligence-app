@@ -194,38 +194,47 @@ def _tool_weather_query(entities: dict, user_id: str | None = None) -> dict:
         location = entities.get("location")
         query_type = (entities.get("query_type") or "current").lower()
 
-        if not location:
+        # Check if we have browser geolocation coordinates
+        user_lat = entities.get("_user_lat")
+        user_lon = entities.get("_user_lon")
+
+        lat, lon, loc_label = None, None, None
+
+        if location:
+            # User explicitly named a city — geocode it
+            coords = ws.get_coordinates_by_city(location)
+            if coords:
+                lat, lon, loc_label = coords["lat"], coords["lon"], location
+            else:
+                return {
+                    "action_taken": "weather_query",
+                    "summary": f"I couldn't find the location '{location}'. Please try a different city or district name.",
+                    "requires_followup": True,
+                }
+        elif user_lat is not None and user_lon is not None:
+            # Use browser geolocation
+            lat, lon, loc_label = user_lat, user_lon, "your location"
+        else:
             return {
                 "action_taken": "weather_query",
                 "summary": "Which location would you like the weather for? Please provide a city or district name.",
                 "requires_followup": True,
             }
 
-        # Geocode the location name using the existing service method
-        coords = ws.get_coordinates_by_city(location)
-        if not coords:
-            return {
-                "action_taken": "weather_query",
-                "summary": f"I couldn't find the location '{location}'. Please try a different city or district name.",
-                "requires_followup": True,
-            }
-
-        lat, lon = coords["lat"], coords["lon"]
-
         if query_type == "forecast":
-            weather_data = ws.get_weather_forecast(lat, lon, location_name=location)
+            weather_data = ws.get_weather_forecast(lat, lon, location_name=loc_label)
         else:
-            weather_data = ws.get_current_weather(lat, lon, location_name=location)
+            weather_data = ws.get_current_weather(lat, lon, location_name=loc_label)
 
         if weather_data.get("success"):
             curr = weather_data.get("current", {})
-            loc_name = weather_data.get("location", {}).get("name", location)
+            loc_name = weather_data.get("location", {}).get("name", loc_label)
             temp = curr.get("temperature", "N/A")
             desc = curr.get("description", "")
             humidity = curr.get("humidity", "N/A")
             summary = f"Weather in {loc_name}: {temp}°C, {desc}. Humidity: {humidity}%."
         else:
-            summary = f"I got weather data for {location} but it may be incomplete."
+            summary = f"I got weather data for {loc_label} but it may be incomplete."
 
         return {
             "action_taken": "weather_query",

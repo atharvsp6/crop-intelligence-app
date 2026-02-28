@@ -243,7 +243,8 @@ class BhoomiEngine:
 
     # ── Main processing pipeline ──────────────────────────────────────
 
-    def process(self, message: str, user_id: str, input_type: str = "text") -> dict:
+    def process(self, message: str, user_id: str, input_type: str = "text",
+                 location: dict | None = None) -> dict:
         """
         Main entry point. Processes a user message through the full Bhoomi AI pipeline.
 
@@ -251,6 +252,7 @@ class BhoomiEngine:
             message: User's text (transcribed if voice)
             user_id: Authenticated user ID
             input_type: "text" or "voice"
+            location: Optional dict with lat/lon from browser geolocation
 
         Returns:
             Structured response dict matching the BhoomiResponse schema
@@ -296,8 +298,16 @@ class BhoomiEngine:
         # 4. Extract entities
         entities = extract_entities(message, intent)
 
+        # 4b. Inject browser geolocation into entities for weather/location-aware intents
+        if location:
+            entities["_user_lat"] = location["lat"]
+            entities["_user_lon"] = location["lon"]
+
         # 5. Check required entities
         missing = get_missing_required(intent, entities)
+        # If location is available in browser, weather doesn't need a city name
+        if location and intent == "weather_query" and "location" in missing:
+            missing.remove("location")
         if missing:
             followup = self._ask_missing_entities(message, intent, missing)
             self._append_message(user_id, "user", message)

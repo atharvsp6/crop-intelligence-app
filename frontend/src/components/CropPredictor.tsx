@@ -1452,17 +1452,6 @@ const CropPredictor: React.FC = () => {
                       {loading ? t('cropPredictor.form.buttons.predicting') : t('cropPredictor.form.buttons.predict')}
                     </Button>
                     <Button
-                      variant="outlined"
-                      color="secondary"
-                      size="large"
-                      fullWidth={isMobile}
-                      startIcon={training ? <CircularProgress size={18} color="inherit" /> : <Science />}
-                      disabled={training}
-                      onClick={train}
-                    >
-                      {training ? t('cropPredictor.form.buttons.training') : t('cropPredictor.form.buttons.train')}
-                    </Button>
-                    <Button
                       variant="text"
                       size="large"
                       color="inherit"

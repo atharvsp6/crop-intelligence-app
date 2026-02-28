@@ -16,15 +16,24 @@ logger = logging.getLogger(__name__)
 def _tool_crop_prediction(entities: dict, user_id: str | None = None) -> dict:
     """Route to crop yield prediction."""
     try:
-        from flask_ready_crop_yield_predictor.flask_ready_crop_yield_predictor import predict_yield
+        from colab_style_predictor import ColabStyleCropModel
 
         crop = entities.get("crop", "wheat")
         region = entities.get("region", "India")
         season = entities.get("season", "")
         area = entities.get("area_acres")
 
-        # Use the ML predictor
-        prediction = predict_yield(crop=crop, state=region)
+        # Build payload matching the ColabStyleCropModel schema
+        payload = {
+            'Crop': crop,
+            'State Name': region,
+            'Season': season or 'kharif',
+            'Area': float(area) if area else 1000.0,
+            'Year': 2024,
+        }
+
+        model = ColabStyleCropModel()
+        prediction = model.predict(payload)
 
         summary = f"Based on our model, the predicted yield for {crop}"
         if region and region != "India":
@@ -202,9 +211,9 @@ def _tool_weather_query(entities: dict, user_id: str | None = None) -> dict:
 
         if location:
             # User explicitly named a city — geocode it
-            coords = ws.get_coordinates_by_city(location)
-            if coords:
-                lat, lon, loc_label = coords["lat"], coords["lon"], location
+            result = ws.get_coordinates_by_city(location)
+            if result.get("success"):
+                lat, lon, loc_label = result["coordinates"]["lat"], result["coordinates"]["lon"], location
             else:
                 return {
                     "action_taken": "weather_query",

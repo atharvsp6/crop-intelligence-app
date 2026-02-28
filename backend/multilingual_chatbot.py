@@ -121,9 +121,35 @@ class MultilingualAgriChatbot:
                 'timestamp': datetime.now().isoformat()
             }
 
+    def translate_text(self, text: str, target_lang: str = 'en', source_lang: str = 'auto') -> str:
+        """Translate text between supported languages using Groq."""
+        try:
+            if source_lang == 'auto':
+                source_lang = self.detect_language(text)
+            target_name = self.supported_languages.get(target_lang, 'English')
+            source_name = self.supported_languages.get(source_lang, 'auto-detected')
+
+            if source_lang == target_lang:
+                return text
+
+            prompt = (
+                f"Translate the following text from {source_name} to {target_name}. "
+                f"Return ONLY the translated text, nothing else.\n\nText: {text}"
+            )
+            message = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=1024,
+            )
+            return message.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"[Chatbot] Translation error: {e}")
+            return text  # Return original text on failure
+
     def get_crop_specific_advice(self, crop_name: str, query_type: str, user_lang='en'):
         lang_name = self.supported_languages.get(user_lang, 'English')
-        
+
         base_queries = {
             'fertilizer': f"What fertilizer and nutrients should I use for {crop_name} crop? Include organic options.",
             'disease': f"What are common diseases and pests affecting {crop_name} crops? How to prevent and treat them?",

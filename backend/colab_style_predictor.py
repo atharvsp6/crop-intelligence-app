@@ -540,9 +540,9 @@ class ColabStyleCropModel:
             # Fertilizer factor (diminishing returns)
             fert_factor = 1.0 + min(fertilizer / 100, 0.3)
             
-            # Calculate predicted yield
+            # Calculate predicted yield (tons per hectare — do NOT multiply by area)
             predicted_yield = (base_yield * state_mult * season_mult * 
-                             rain_factor * fert_factor * area)
+                             rain_factor * fert_factor)
             
             # Add some realistic variance (±15%)
             import random

@@ -112,6 +112,9 @@ def retry_connection():
 def init_database():
     """Initialize database with sample data"""
     db = get_database()
+    if db is None:
+        print("[Database] Cannot initialize: database connection unavailable")
+        return
     
     # Initialize crop yield data collection
     if 'crop_yield_data' not in db.list_collection_names():

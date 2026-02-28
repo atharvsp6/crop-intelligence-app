@@ -183,8 +183,10 @@ class UserManager:
                 'user': {
                     'id': str(user['_id']),
                     'email': user['email'],
-                    'first_name': user['first_name'],
-                    'last_name': user['last_name'],
+                    'first_name': user.get('full_name', user.get('username', '')).split()[0] if user.get('full_name') or user.get('username') else '',
+                    'last_name': ' '.join(user.get('full_name', '').split()[1:]) if user.get('full_name') else '',
+                    'username': user.get('username', ''),
+                    'full_name': user.get('full_name', ''),
                     'location': user.get('location'),
                     'profile': user.get('profile', {}),
                     'stats': user.get('stats', {}),

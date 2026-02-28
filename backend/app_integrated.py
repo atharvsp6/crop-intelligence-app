@@ -88,7 +88,7 @@ DISEASE_SERVICE_URL = os.environ.get(
     "DISEASE_SERVICE_URL",
     "https://plant-disease-detection-api-nni5.onrender.com/predict"
 )
-DISEASE_SERVICE_TIMEOUT = int(os.environ.get("DISEASE_SERVICE_TIMEOUT", "30"))
+DISEASE_SERVICE_TIMEOUT = int(os.environ.get("DISEASE_SERVICE_TIMEOUT", "60"))
 # Custom API supported crops (others will use Gemini directly)
 ALLOWED_CUSTOM_CROPS = {
     'tomato', 'potato', 'corn', 'grape', 'pepper'
@@ -252,7 +252,7 @@ dashboard_service = DashboardService()
 try:
     if MultilingualAgriChatbot:
         GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
-        GROQ_MODEL = os.environ.get('GROQ_CHATBOT_MODEL', 'mixtral-8x7b-32768')
+        GROQ_MODEL = os.environ.get('GROQ_CHATBOT_MODEL', 'llama-3.3-70b-versatile')
         if GROQ_API_KEY:
             crop_chatbot = MultilingualAgriChatbot(GROQ_API_KEY, GROQ_MODEL)
             print(f"[Chatbot] Multilingual chatbot initialized successfully with Groq model: {GROQ_MODEL}")
@@ -345,7 +345,7 @@ if GEMINI_API_KEY and genai:
         recommendation_model_name = (
             os.environ.get('YIELD_GEMINI_MODEL')
             or os.environ.get('MULTILINGUAL_GEMINI_MODEL')
-            or 'gemini-2.0-flash-exp'
+            or 'gemini-2.5-flash'
         )
         genai.configure(api_key=GEMINI_API_KEY)
         yield_recommendation_model = genai.GenerativeModel(recommendation_model_name)
@@ -893,7 +893,7 @@ def get_recent_activity():
         user_id = get_jwt_identity()
         limit = request.args.get('limit', 10, type=int)
         
-        activity = dashboard_service.get_recent_activity(user_id, limit)
+        activity = dashboard_service.get_recent_activity(limit)
         return jsonify(activity)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1243,7 +1243,7 @@ def mchatbot_status():
         'requires_env': 'GEMINI_API_KEY',
         'override_model_env': 'MULTILINGUAL_GEMINI_MODEL',
         'model_override_used': os.environ.get('MULTILINGUAL_GEMINI_MODEL') is not None,
-        'model_name': getattr(getattr(multilingual_chatbot, 'model', None), 'model_name', None)
+        'model_name': getattr(multilingual_chatbot, 'model', None)
     })
 
 # Removed earlier duplicate model-info endpoint (consolidated later)
@@ -1771,6 +1771,8 @@ def _map_frontend_to_colab(d: dict) -> dict:
         'humidity': 'Humidity_%',
         'ph': 'pH',
         'rainfall': 'Rainfall_mm',
+        'fertilizer_input': 'Fertilizer',
+        'pesticide_input': 'Pesticide',
         'nitrogen': 'N_req_kg_per_ha',
         'phosphorus': 'P_req_kg_per_ha',
         'potassium': 'K_req_kg_per_ha',
@@ -2066,16 +2068,35 @@ def detect_plant_disease():
         return jsonify(detection), response.status_code
     
     except requests.exceptions.Timeout:
+        print("[Disease Detection] Custom API timed out, attempting Gemini fallback...")
+        if image_data_for_gemini and yield_recommendation_model:
+            try:
+                gemini_detection = _detect_disease_with_gemini_fallback(image_data_for_gemini, user_id)
+                if gemini_detection.get('success'):
+                    gemini_detection['detection_method'] = 'gemini_ai_timeout_fallback'
+                    gemini_detection['verification_note'] = 'Detected using Gemini AI (primary API timed out)'
+                    return jsonify(gemini_detection), 200
+            except Exception as fb_err:
+                print(f"[Disease Detection] Gemini timeout fallback error: {fb_err}")
         return jsonify({
             'success': False,
             'error': 'Disease detection API request timed out. Try again.'
         }), 504
     
     except requests.exceptions.ConnectionError:
+        print("[Disease Detection] Cannot connect to custom API, attempting Gemini fallback...")
+        if image_data_for_gemini and yield_recommendation_model:
+            try:
+                gemini_detection = _detect_disease_with_gemini_fallback(image_data_for_gemini, user_id)
+                if gemini_detection.get('success'):
+                    gemini_detection['detection_method'] = 'gemini_ai_connection_fallback'
+                    gemini_detection['verification_note'] = 'Detected using Gemini AI (primary API unreachable)'
+                    return jsonify(gemini_detection), 200
+            except Exception as fb_err:
+                print(f"[Disease Detection] Gemini connection fallback error: {fb_err}")
         return jsonify({
             'success': False,
-            'error': f'Cannot connect to disease detection API at {DISEASE_SERVICE_URL}. '
-                     'Please ensure the API is running and accessible.'
+            'error': f'Cannot connect to disease detection API. Please try again later.'
         }), 503
     
     except Exception as e:

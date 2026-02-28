@@ -135,6 +135,7 @@ allowed_origin_set = {
         "https://yieldwise.atharvpatil.me",
         "https://www.yieldwise.atharvpatil.me",
         "https://crop-intelligence-api.azurewebsites.net",
+        "https://crop-intel-sea.azurewebsites.net",
     ]
     if origin
 }

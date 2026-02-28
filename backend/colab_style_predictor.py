@@ -331,6 +331,7 @@ class ColabStyleCropModel:
                     pass
 
                 pred = model.predict(X)[0]
+                oob_score = getattr(model, 'oob_score_', 0) or 0
             finally:
                 # Explicitly cleanup model and large arrays
                 try:
@@ -348,35 +349,6 @@ class ColabStyleCropModel:
                 import gc
                 gc.collect()
 
-            # Feature engineering (same as training)
-            if {'Temperature_C','Rainfall_mm'}.issubset(df.columns):
-                df['Temp_Rain_Interaction'] = df['Temperature_C'] * df['Rainfall_mm']
-            if {'Humidity_%','pH'}.issubset(df.columns):
-                df['Humidity_pH_Interaction'] = df['Humidity_%'] * df['pH']
-            if {'Fertilizer','Pesticide'}.issubset(df.columns):
-                df['Fertilizer_Pesticide_Interaction'] = df['Fertilizer'] * df['Pesticide']
-            if 'Temperature_C' in df.columns:
-                df['Temperature_C_sq'] = df['Temperature_C']**2
-                df['GDD'] = (df['Temperature_C'] - self.GDD_BASE_TEMP).apply(lambda x: max(0,x))
-            if 'Rainfall_mm' in df.columns:
-                df['Rainfall_mm_sq'] = df['Rainfall_mm']**2
-            if 'pH' in df.columns:
-                df['pH_sq'] = df['pH']**2
-
-            # Align columns
-            for col in self.feature_columns:
-                if col not in df.columns:
-                    if self.training_means is not None and col in self.training_means:
-                        df[col] = self.training_means[col]
-                    else:
-                        df[col] = 0
-            df = df[self.feature_columns]
-
-            # Impute any remaining NaNs with training means
-            if self.training_means is not None:
-                df = df.fillna(self.training_means)
-
-            pred = self.model.predict(df)[0]
             if pred < 0:
                 pred = 0
 
@@ -409,7 +381,7 @@ class ColabStyleCropModel:
                 'success': True,
                 'predicted_yield': round(float(pred), 4),
                 'yield_unit': 'ton/hectare',
-                'model_confidence': round(getattr(self.model,'oob_score_',0) or 0, 4),
+                'model_confidence': round(oob_score, 4),
                 'feature_count': len(self.feature_columns),
                 'target_mean': round(float(mean), 4) if mean is not None else None,
                 'target_std': round(float(std), 4) if std is not None else None,
